@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       await apiFetch("/api/auth/login", {
         method: "POST",
-        json: { email, password },
+        json: { identifier, password },
       });
       router.push("/dashboard");
     } catch (err) {
@@ -45,14 +45,14 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <label className="text-sm text-[color:var(--text-secondary)]">
-              Email
+              Email or Username
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="w-full rounded-lg border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]"
-              placeholder="you@example.com"
+              placeholder="you@example.com or yourname"
               required
             />
           </div>

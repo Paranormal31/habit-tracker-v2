@@ -5,6 +5,10 @@ import { User } from "../models/User";
 import { env } from "../config/env";
 import { registerSchema, loginSchema } from "../validators/auth";
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function signToken(userId: string) {
   return jwt.sign(
     { sub: userId },
@@ -54,7 +58,11 @@ export async function register(req: Request, res: Response) {
 export async function login(req: Request, res: Response) {
   const data = loginSchema.parse(req.body);
 
-  const user = await User.findOne({ email: data.email.toLowerCase().trim() });
+  const raw = data.identifier.trim();
+  const isEmail = raw.includes("@");
+  const user = isEmail
+    ? await User.findOne({ email: raw.toLowerCase() })
+    : await User.findOne({ name: { $regex: `^${escapeRegex(raw)}$`, $options: "i" } });
   if (!user) {
     return res.status(401).json({ message: "Invalid credentials" });
   }
