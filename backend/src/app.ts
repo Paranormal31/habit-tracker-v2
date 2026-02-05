@@ -39,6 +39,13 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  app.get("/", (_req, res) => {
+    res.json({
+      ok: true,
+      message: "Habit Tracker API is running. See /health for status."
+    });
+  });
+
   app.use("/api/auth", authRoutes);
   app.use("/api/habits", habitsRoutes);
   app.use("/api/completions", completionsRoutes);
