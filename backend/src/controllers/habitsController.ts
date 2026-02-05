@@ -7,6 +7,9 @@ import { getTodayInTimezone } from "../utils/date";
 import { recomputeStreak } from "../utils/streak";
 
 export async function listHabits(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   const today = await getTodayInTimezone(req.userId);
   const habits = await Habit.find({ userId: req.userId }).sort({ order: 1 });
   for (const habit of habits) {
@@ -36,6 +39,9 @@ export async function listHabits(req: AuthRequest, res: Response) {
 }
 
 export async function createHabit(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   const data = createHabitSchema.parse(req.body);
   const last = await Habit.findOne({ userId: req.userId }).sort({ order: -1 });
   const order = last ? last.order + 1 : 0;
@@ -60,6 +66,9 @@ export async function createHabit(req: AuthRequest, res: Response) {
 }
 
 export async function updateHabit(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   const data = updateHabitSchema.parse(req.body);
   const habit = await Habit.findOne({ _id: req.params.id, userId: req.userId });
   if (!habit) {
@@ -82,6 +91,9 @@ export async function updateHabit(req: AuthRequest, res: Response) {
 }
 
 export async function deleteHabit(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   const habit = await Habit.findOneAndDelete({ _id: req.params.id, userId: req.userId });
   if (!habit) {
     return res.status(404).json({ message: "Habit not found" });
@@ -92,6 +104,9 @@ export async function deleteHabit(req: AuthRequest, res: Response) {
 }
 
 export async function reorderHabits(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
   const data = reorderHabitsSchema.parse(req.body);
 
   const habits = await Habit.find({ userId: req.userId, _id: { $in: data.orderedIds } });
