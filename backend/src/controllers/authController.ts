@@ -13,12 +13,13 @@ function signToken(userId: string) {
   );
 }
 
-function setAuthCookie(res: Response, token: string) {
-  const isProd = env.NODE_ENV === "production";
+function setAuthCookie(req: Request, res: Response, token: string) {
+  const origin = req.headers.origin ?? "";
+  const isLocalhost = origin.includes("http://localhost");
   res.cookie("auth_token", token, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    secure: !isLocalhost,
+    sameSite: isLocalhost ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24 * 7
   });
 }
@@ -40,7 +41,7 @@ export async function register(req: Request, res: Response) {
   });
 
   const token = signToken(user._id.toString());
-  setAuthCookie(res, token);
+  setAuthCookie(req, res, token);
 
   return res.status(201).json({
     id: user._id,
@@ -64,7 +65,7 @@ export async function login(req: Request, res: Response) {
   }
 
   const token = signToken(user._id.toString());
-  setAuthCookie(res, token);
+  setAuthCookie(req, res, token);
 
   return res.json({
     id: user._id,
