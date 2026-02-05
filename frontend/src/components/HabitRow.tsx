@@ -3,6 +3,8 @@ type Habit = {
   name: string;
   order: number;
   streak: number;
+  streakFreezeDate: string | null;
+  isFrozenToday: boolean;
   createdAt: string;
 };
 
@@ -17,6 +19,7 @@ type HabitRowProps = {
   isTodayMonth: boolean;
   completionSet: Set<string>;
   onToggle: (habitId: string, dateKey: string) => void;
+  onToggleFreeze: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
 };
@@ -42,14 +45,16 @@ export function HabitRow({
   isTodayMonth,
   completionSet,
   onToggle,
+  onToggleFreeze,
   onDelete,
   onMove,
 }: HabitRowProps) {
+  const completedToday = isTodayMonth && completionSet.has(`${habit.id}|${todayKey}`);
   return (
     <div
       className="group grid gap-px bg-[color:var(--border-subtle)]"
       style={{
-        gridTemplateColumns: `minmax(220px, 1fr) 90px repeat(${days.length}, 40px)`,
+        gridTemplateColumns: `minmax(220px, 1fr) 130px repeat(${days.length}, 40px)`,
       }}
     >
       <div className="flex items-center justify-between bg-[color:var(--bg-card)] px-4 py-3">
@@ -78,7 +83,7 @@ export function HabitRow({
         </div>
       </div>
 
-      <div className="flex items-center justify-center bg-[color:var(--bg-card)] px-3 py-3">
+      <div className="flex items-center justify-between bg-[color:var(--bg-card)] px-3 py-3">
         <span
           className={`text-sm font-semibold ${
             habit.streak > 0 ? "text-[color:var(--accent)]" : "text-[color:var(--text-muted)]"
@@ -86,6 +91,19 @@ export function HabitRow({
         >
           {habit.streak}
         </span>
+        <button
+          onClick={() => onToggleFreeze(habit.id)}
+          disabled={completedToday}
+          className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+            habit.isFrozenToday
+              ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
+              : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--text-muted)]"
+          } ${completedToday ? "cursor-not-allowed opacity-50 hover:border-[color:var(--border-default)]" : ""}`}
+          aria-pressed={habit.isFrozenToday}
+          aria-label={`Toggle streak freeze for ${habit.name}`}
+        >
+          {habit.isFrozenToday ? "Frozen" : "Freeze"}
+        </button>
       </div>
 
       {days.map((day) => {

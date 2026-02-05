@@ -72,7 +72,8 @@ async function seed() {
       const streak = await recomputeStreak({
         userId: user._id.toString(),
         habitId: habit._id.toString(),
-        today: todayStr
+        today: todayStr,
+        freezeDate: habit.streakFreezeDate ?? null
       });
       habit.streak = streak;
       await habit.save();

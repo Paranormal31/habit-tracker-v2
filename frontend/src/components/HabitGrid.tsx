@@ -5,6 +5,8 @@ type Habit = {
   name: string;
   order: number;
   streak: number;
+  streakFreezeDate: string | null;
+  isFrozenToday: boolean;
   createdAt: string;
 };
 
@@ -17,6 +19,7 @@ type HabitGridProps = {
   isTodayMonth: boolean;
   completionSet: Set<string>;
   onToggle: (habitId: string, dateKey: string) => void;
+  onToggleFreeze: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
 };
@@ -30,6 +33,7 @@ export function HabitGrid({
   isTodayMonth,
   completionSet,
   onToggle,
+  onToggleFreeze,
   onDelete,
   onMove,
 }: HabitGridProps) {
@@ -40,14 +44,14 @@ export function HabitGrid({
           <div
             className="grid gap-px bg-[color:var(--border-subtle)]"
             style={{
-              gridTemplateColumns: `minmax(220px, 1fr) 90px repeat(${days.length}, 40px)`,
+              gridTemplateColumns: `minmax(220px, 1fr) 130px repeat(${days.length}, 40px)`,
             }}
           >
             <div className="bg-[color:var(--bg-card)] px-4 py-3 text-sm font-medium text-[color:var(--text-secondary)]">
               Habit
             </div>
             <div className="bg-[color:var(--bg-card)] px-3 py-3 text-center text-sm font-medium text-[color:var(--text-secondary)]">
-              Streak
+              Streak / Freeze
             </div>
             {days.map((day) => (
               <div
@@ -73,6 +77,7 @@ export function HabitGrid({
                 isTodayMonth={isTodayMonth}
                 completionSet={completionSet}
                 onToggle={onToggle}
+                onToggleFreeze={onToggleFreeze}
                 onDelete={onDelete}
                 onMove={onMove}
               />

@@ -23,6 +23,8 @@ type Habit = {
   name: string;
   order: number;
   streak: number;
+  streakFreezeDate: string | null;
+  isFrozenToday: boolean;
   createdAt: string;
 };
 
@@ -180,6 +182,33 @@ export default function DashboardPage() {
     }
   }
 
+  async function toggleFreeze(habitId: string) {
+    setError(null);
+    try {
+      const result = await apiFetch<{
+        habitId: string;
+        streak: number;
+        streakFreezeDate: string | null;
+        isFrozenToday: boolean;
+      }>(`/api/habits/${habitId}/freeze`, { method: "POST" });
+
+      setHabits((prev) =>
+        prev.map((h) =>
+          h.id === habitId
+            ? {
+                ...h,
+                streak: result.streak,
+                streakFreezeDate: result.streakFreezeDate,
+                isFrozenToday: result.isFrozenToday,
+              }
+            : h
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Freeze toggle failed");
+    }
+  }
+
   async function moveHabit(index: number, direction: "up" | "down") {
     const next = [...habits];
     const target = direction === "up" ? index - 1 : index + 1;
@@ -249,6 +278,7 @@ export default function DashboardPage() {
             isTodayMonth={isTodayMonth}
             completionSet={completionSet}
             onToggle={toggleCompletion}
+            onToggleFreeze={toggleFreeze}
             onDelete={deleteHabit}
             onMove={moveHabit}
           />

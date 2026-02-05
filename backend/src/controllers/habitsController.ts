@@ -3,15 +3,33 @@ import { Habit } from "../models/Habit";
 import { HabitCompletion } from "../models/HabitCompletion";
 import { AuthRequest } from "../middleware/auth";
 import { createHabitSchema, updateHabitSchema, reorderHabitsSchema } from "../validators/habits";
+import { getTodayInTimezone } from "../utils/date";
+import { recomputeStreak } from "../utils/streak";
 
 export async function listHabits(req: AuthRequest, res: Response) {
+  const today = await getTodayInTimezone(req.userId);
   const habits = await Habit.find({ userId: req.userId }).sort({ order: 1 });
+  for (const habit of habits) {
+    if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
+      habit.streakFreezeDate = null;
+      const streak = await recomputeStreak({
+        userId: req.userId,
+        habitId: habit._id.toString(),
+        today,
+        freezeDate: null
+      });
+      habit.streak = streak;
+      await habit.save();
+    }
+  }
   return res.json(
     habits.map((h) => ({
       id: h._id,
       name: h.name,
       order: h.order,
       streak: h.streak,
+      streakFreezeDate: h.streakFreezeDate ?? null,
+      isFrozenToday: h.streakFreezeDate === today,
       createdAt: h.createdAt
     }))
   );
@@ -29,11 +47,14 @@ export async function createHabit(req: AuthRequest, res: Response) {
     streak: 0
   });
 
+  const today = await getTodayInTimezone(req.userId);
   return res.status(201).json({
     id: habit._id,
     name: habit.name,
     order: habit.order,
     streak: habit.streak,
+    streakFreezeDate: habit.streakFreezeDate ?? null,
+    isFrozenToday: habit.streakFreezeDate === today,
     createdAt: habit.createdAt
   });
 }
@@ -48,11 +69,14 @@ export async function updateHabit(req: AuthRequest, res: Response) {
   habit.name = data.name.trim();
   await habit.save();
 
+  const today = await getTodayInTimezone(req.userId);
   return res.json({
     id: habit._id,
     name: habit.name,
     order: habit.order,
     streak: habit.streak,
+    streakFreezeDate: habit.streakFreezeDate ?? null,
+    isFrozenToday: habit.streakFreezeDate === today,
     createdAt: habit.createdAt
   });
 }
@@ -87,4 +111,51 @@ export async function reorderHabits(req: AuthRequest, res: Response) {
   }
 
   return res.json({ ok: true });
+}
+
+export async function toggleStreakFreeze(req: AuthRequest, res: Response) {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const habit = await Habit.findOne({ _id: req.params.id, userId: req.userId });
+  if (!habit) {
+    return res.status(404).json({ message: "Habit not found" });
+  }
+
+  const today = await getTodayInTimezone(req.userId);
+  if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
+    habit.streakFreezeDate = null;
+  }
+
+  const completedToday = await HabitCompletion.findOne({
+    userId: req.userId,
+    habitId: habit._id,
+    date: today,
+    completed: true
+  }).select("_id");
+
+  if (completedToday && habit.streakFreezeDate !== today) {
+    return res.status(400).json({ message: "Habit already completed today" });
+  }
+
+  const alreadyFrozenToday = habit.streakFreezeDate === today;
+  habit.streakFreezeDate = alreadyFrozenToday ? null : today;
+
+  const streak = await recomputeStreak({
+    userId: req.userId,
+    habitId: habit._id.toString(),
+    today,
+    freezeDate: habit.streakFreezeDate ?? null
+  });
+
+  habit.streak = streak;
+  await habit.save();
+
+  return res.json({
+    habitId: habit._id.toString(),
+    streak,
+    streakFreezeDate: habit.streakFreezeDate ?? null,
+    isFrozenToday: habit.streakFreezeDate === today
+  });
 }

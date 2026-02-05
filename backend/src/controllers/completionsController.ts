@@ -64,10 +64,14 @@ export async function toggleCompletion(req: AuthRequest, res: Response) {
   }
 
   const today = await getTodayInTimezone(req.userId);
+  if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
+    habit.streakFreezeDate = null;
+  }
   const streak = await recomputeStreak({
     userId: req.userId,
     habitId: data.habitId,
-    today
+    today,
+    freezeDate: habit.streakFreezeDate ?? null
   });
 
   habit.streak = streak;
