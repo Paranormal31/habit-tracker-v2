@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --bg-app: #0b0d10;
+  --bg-header: #0e1014;
+  --bg-surface: #111418;
+  --bg-card: #14181d;
+  --text-primary: #ffffff;
+  --text-secondary: #9aa1a9;
+  --text-muted: #6b7280;
+  --accent: #14b8a6;
+  --accent-muted: #0f766e;
+  --danger: #ef4444;
+  --border-default: #1f2933;
+  --border-subtle: #1c2026;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+input,
+button,
+textarea {
+  font: inherit;
+}

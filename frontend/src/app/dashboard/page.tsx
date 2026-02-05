@@ -1,0 +1,265 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { formatMonthKey, daysInMonth, getTodayInTimezone } from "@/lib/date";
+import { AppHeader } from "@/components/AppHeader";
+import { AddHabitInput } from "@/components/AddHabitInput";
+import { ProgressCard } from "@/components/ProgressCard";
+import { MonthNavigator } from "@/components/MonthNavigator";
+import { HabitGrid } from "@/components/HabitGrid";
+import { EmptyState } from "@/components/EmptyState";
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  timezone: string;
+};
+
+type Habit = {
+  id: string;
+  name: string;
+  order: number;
+  streak: number;
+  createdAt: string;
+};
+
+type Completion = {
+  habitId: string;
+  date: string;
+  completed: boolean;
+};
+
+type Progress = {
+  totalChecks: number;
+  completedChecks: number;
+  percentage: number;
+};
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [completionSet, setCompletionSet] = useState<Set<string>>(new Set());
+  const [progress, setProgress] = useState<Progress>({ totalChecks: 0, completedChecks: 0, percentage: 0 });
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const monthKey = useMemo(() => formatMonthKey(currentDate), [currentDate]);
+  const daysCount = useMemo(() => daysInMonth(currentDate), [currentDate]);
+  const days = useMemo(() => Array.from({ length: daysCount }, (_, i) => i + 1), [daysCount]);
+
+  const todayKey = useMemo(() => getTodayInTimezone(user?.timezone ?? "Asia/Kolkata"), [user?.timezone]);
+  const isTodayMonth = useMemo(() => {
+    const [y, m] = todayKey.split("-").map(Number);
+    return y === currentDate.getFullYear() && m === currentDate.getMonth() + 1;
+  }, [todayKey, currentDate]);
+
+  const loadMonthData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const completions = await apiFetch<Completion[]>(
+        `/api/completions?month=${monthKey}`,
+        { method: "GET" }
+      );
+      const set = new Set<string>();
+      completions.forEach((c) => {
+        if (c.completed) set.add(`${c.habitId}|${c.date}`);
+      });
+      setCompletionSet(set);
+
+      const progressData = await apiFetch<Progress>(
+        `/api/progress?month=${monthKey}`,
+        { method: "GET" }
+      );
+      setProgress(progressData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load progress");
+    }
+  }, [user, monthKey]);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        setError(null);
+        const me = await apiFetch<User>("/api/auth/me", { method: "GET" });
+        if (!active) return;
+        setUser(me);
+
+        const habitData = await apiFetch<Habit[]>("/api/habits", { method: "GET" });
+        if (!active) return;
+        setHabits(habitData);
+
+      } catch {
+        if (active) router.replace("/login");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadMonthData().catch(() => null);
+  }, [monthKey, user, loadMonthData]);
+
+  async function logout() {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+      router.replace("/login");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Logout failed");
+    }
+  }
+
+  async function addHabit(name: string) {
+    setError(null);
+    const habit = await apiFetch<Habit>("/api/habits", {
+      method: "POST",
+      json: { name },
+    });
+    setHabits((prev) => [...prev, habit].sort((a, b) => a.order - b.order));
+    await loadMonthData();
+  }
+
+  async function deleteHabit(id: string) {
+    setError(null);
+    await apiFetch(`/api/habits/${id}`, { method: "DELETE" });
+    setHabits((prev) => prev.filter((h) => h.id !== id));
+    setCompletionSet((prev) => {
+      const next = new Set(prev);
+      Array.from(next).forEach((key) => {
+        if (key.startsWith(`${id}|`)) next.delete(key);
+      });
+      return next;
+    });
+    await loadMonthData();
+  }
+
+  async function toggleCompletion(habitId: string, dateKey: string) {
+    setError(null);
+    const key = `${habitId}|${dateKey}`;
+    setCompletionSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+
+    try {
+      const result = await apiFetch<{ completed: boolean; streak: number }>(
+        "/api/completions/toggle",
+        { method: "POST", json: { habitId, date: dateKey } }
+      );
+      setCompletionSet((prev) => {
+        const next = new Set(prev);
+        if (result.completed) {
+          next.add(key);
+        } else {
+          next.delete(key);
+        }
+        return next;
+      });
+      setHabits((prev) =>
+        prev.map((h) => (h.id === habitId ? { ...h, streak: result.streak } : h))
+      );
+      await loadMonthData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Toggle failed");
+    }
+  }
+
+  async function moveHabit(index: number, direction: "up" | "down") {
+    const next = [...habits];
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setHabits(next);
+    await apiFetch("/api/habits/reorder", {
+      method: "POST",
+      json: { orderedIds: next.map((h) => h.id) },
+    });
+  }
+
+  function changeMonth(direction: "prev" | "next") {
+    setCurrentDate((prev) => {
+      const next = new Date(prev);
+      next.setMonth(next.getMonth() + (direction === "prev" ? -1 : 1));
+      return next;
+    });
+  }
+
+  const monthLabel = useMemo(() => {
+    return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(currentDate);
+  }, [currentDate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-[color:var(--text-secondary)]">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  return (
+    <div className="min-h-screen">
+      <AppHeader
+        userName={user.name}
+        currentDate={currentDate}
+        timezone={user.timezone}
+        onLogout={logout}
+      />
+
+      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+        <AddHabitInput onAdd={addHabit} />
+
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <ProgressCard
+            percentage={progress.percentage}
+            completed={progress.completedChecks}
+            total={progress.totalChecks}
+          />
+          <div className="flex-1">
+            <MonthNavigator label={monthLabel} onPrevious={() => changeMonth("prev")} onNext={() => changeMonth("next")} />
+          </div>
+        </div>
+
+        {habits.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <HabitGrid
+            habits={habits}
+            days={days}
+            year={currentDate.getFullYear()}
+            month={currentDate.getMonth() + 1}
+            todayKey={todayKey}
+            isTodayMonth={isTodayMonth}
+            completionSet={completionSet}
+            onToggle={toggleCompletion}
+            onDelete={deleteHabit}
+            onMove={moveHabit}
+          />
+        )}
+
+        {error && (
+          <div className="rounded-lg border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 px-3 py-2 text-sm text-[color:var(--danger)]">
+            {error}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
