@@ -80,6 +80,9 @@ export async function logout(_req: Request, res: Response) {
 }
 
 export async function me(req: Request, res: Response) {
+  // Debug: verify auth cookie arrives in production
+  // eslint-disable-next-line no-console
+  console.log(`[auth/me] origin=${req.headers.origin ?? "unknown"} cookie=${req.headers.cookie ?? "none"}`);
   const token = req.cookies?.auth_token;
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
