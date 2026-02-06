@@ -63,22 +63,25 @@ export function HabitRow({
           <button
             onClick={() => onMove(index, "up")}
             disabled={index === 0}
-            className="rounded border border-[color:var(--border-default)] px-1.5 py-0.5 text-xs text-[color:var(--text-muted)] disabled:opacity-40"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
+            aria-label={`Move ${habit.name} up`}
           >
-            Up
+            ↑
           </button>
           <button
             onClick={() => onMove(index, "down")}
             disabled={index === totalHabits - 1}
-            className="rounded border border-[color:var(--border-default)] px-1.5 py-0.5 text-xs text-[color:var(--text-muted)] disabled:opacity-40"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
+            aria-label={`Move ${habit.name} down`}
           >
-            Down
+            ↓
           </button>
           <button
             onClick={() => onDelete(habit.id)}
-            className="rounded border border-[color:var(--danger)]/40 px-1.5 py-0.5 text-xs text-[color:var(--danger)]"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--danger)]/40 text-xs text-[color:var(--danger)] hover:border-[color:var(--danger)]/70"
+            aria-label={`Delete ${habit.name}`}
           >
-            Del
+            ✕
           </button>
         </div>
       </div>
@@ -94,7 +97,7 @@ export function HabitRow({
         <button
           onClick={() => onToggleFreeze(habit.id)}
           disabled={completedToday}
-          className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+          className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition ${
             habit.isFrozenToday
               ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
               : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--text-muted)]"
@@ -102,7 +105,7 @@ export function HabitRow({
           aria-pressed={habit.isFrozenToday}
           aria-label={`Toggle streak freeze for ${habit.name}`}
         >
-          {habit.isFrozenToday ? "Frozen" : "Freeze"}
+          ❄
         </button>
       </div>
 
