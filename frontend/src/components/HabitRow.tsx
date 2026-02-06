@@ -12,7 +12,7 @@ type HabitRowProps = {
   habit: Habit;
   index: number;
   totalHabits: number;
-  days: { key: string; label: string; isToday: boolean }[];
+  days: { key: string; label: string; weekday: string; isToday: boolean }[];
   todayKey: string;
   completionSet: Set<string>;
   onToggle: (habitId: string, dateKey: string) => void;
@@ -53,7 +53,7 @@ export function HabitRow({
               className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
               aria-label={`Move ${habit.name} up`}
             >
-              ↑
+              {"\u2191"}
             </button>
             <button
               onClick={() => onMove(index, "down")}
@@ -61,7 +61,7 @@ export function HabitRow({
               className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
               aria-label={`Move ${habit.name} down`}
             >
-              ↓
+              {"\u2193"}
             </button>
             <button
               onClick={() => onToggleFreeze(habit.id)}
@@ -74,20 +74,20 @@ export function HabitRow({
               aria-pressed={habit.isFrozenToday}
               aria-label={`Toggle streak freeze for ${habit.name}`}
             >
-              ❄
+              {"\u2744"}
             </button>
             <button
               onClick={() => onDelete(habit.id)}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--danger)]/40 text-xs text-[color:var(--danger)] hover:border-[color:var(--danger)]/70"
               aria-label={`Delete ${habit.name}`}
             >
-              ✕
+              {"\u2715"}
             </button>
           </div>
         </div>
 
         <div className="mt-4">
-          <div className="text-xs text-[color:var(--text-muted)]">Last 10 days</div>
+          <div className="text-xs text-[color:var(--text-muted)]">Last {days.length} days</div>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
             {days.map((day) => {
               const key = day.key;
@@ -97,6 +97,9 @@ export function HabitRow({
               return (
                 <div key={key} className="flex shrink-0 flex-col items-center gap-1">
                   <span className="text-[10px] text-[color:var(--text-muted)]">{day.label}</span>
+                  <span className="text-[10px] uppercase text-[color:var(--text-secondary)]">
+                    {day.weekday}
+                  </span>
                   <button
                     onClick={() => onToggle(habit.id, key)}
                     disabled={disabled}
@@ -109,7 +112,7 @@ export function HabitRow({
                     } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
                     aria-label={`Toggle ${habit.name} on ${key}`}
                   >
-                    {completed ? "✓" : ""}
+                    {completed ? "\u2713" : ""}
                   </button>
                 </div>
               );
@@ -133,7 +136,7 @@ export function HabitRow({
               className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
               aria-label={`Move ${habit.name} up`}
             >
-              ↑
+              {"\u2191"}
             </button>
             <button
               onClick={() => onMove(index, "down")}
@@ -141,14 +144,14 @@ export function HabitRow({
               className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--border-default)] text-xs text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] disabled:opacity-40"
               aria-label={`Move ${habit.name} down`}
             >
-              ↓
+              {"\u2193"}
             </button>
             <button
               onClick={() => onDelete(habit.id)}
               className="flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--danger)]/40 text-xs text-[color:var(--danger)] hover:border-[color:var(--danger)]/70"
               aria-label={`Delete ${habit.name}`}
             >
-              ✕
+              {"\u2715"}
             </button>
           </div>
         </div>
@@ -172,7 +175,7 @@ export function HabitRow({
             aria-pressed={habit.isFrozenToday}
             aria-label={`Toggle streak freeze for ${habit.name}`}
           >
-            ❄
+            {"\u2744"}
           </button>
         </div>
 
@@ -199,7 +202,7 @@ export function HabitRow({
                 } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
                 aria-label={`Toggle ${habit.name} on ${key}`}
               >
-                {completed ? "✓" : ""}
+                {completed ? "\u2713" : ""}
               </button>
             </div>
           );

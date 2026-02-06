@@ -13,6 +13,7 @@ type Habit = {
 type GridDay = {
   key: string;
   label: string;
+  weekday: string;
   isToday: boolean;
 };
 
@@ -58,7 +59,10 @@ export function HabitGrid({
                 key={day.key}
                 className="bg-[color:var(--bg-card)] px-2 py-3 text-center text-xs font-medium text-[color:var(--text-muted)]"
               >
-                {day.label}
+                <div>{day.label}</div>
+                <div className="mt-1 text-[10px] uppercase text-[color:var(--text-secondary)]">
+                  {day.weekday}
+                </div>
               </div>
             ))}
           </div>

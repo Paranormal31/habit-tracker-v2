@@ -18,7 +18,7 @@ export function AddHabitInput({ onAdd, disabled }: AddHabitInputProps) {
 
   return (
     <div className="rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)] p-4">
-      <form onSubmit={submit} className="flex gap-3">
+      <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -29,7 +29,7 @@ export function AddHabitInput({ onAdd, disabled }: AddHabitInputProps) {
         <button
           type="submit"
           disabled={disabled || !name.trim()}
-          className="rounded-lg bg-[color:var(--accent)] px-5 py-2.5 text-sm font-medium text-black transition hover:bg-[color:var(--accent-muted)] disabled:opacity-50"
+          className="w-full rounded-lg bg-[color:var(--accent)] px-5 py-2.5 text-sm font-medium text-black transition hover:bg-[color:var(--accent-muted)] disabled:opacity-50 sm:w-auto"
         >
           Add Habit
         </button>

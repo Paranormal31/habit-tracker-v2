@@ -7,7 +7,6 @@ import { formatMonthKey, getTodayInTimezone } from "@/lib/date";
 import { AppHeader } from "@/components/AppHeader";
 import { AddHabitInput } from "@/components/AddHabitInput";
 import { ProgressCard } from "@/components/ProgressCard";
-import { MonthNavigator } from "@/components/MonthNavigator";
 import { HabitGrid } from "@/components/HabitGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { PageTabs } from "@/components/PageTabs";
@@ -47,7 +46,9 @@ export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completionSet, setCompletionSet] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<Progress>({ totalChecks: 0, completedChecks: 0, percentage: 0 });
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate] = useState(new Date());
+  const [daysWindow] = useState(7);
+  const [windowEndKey, setWindowEndKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,11 +56,12 @@ export default function DashboardPage() {
   const monthKey = useMemo(() => formatMonthKey(currentDate), [currentDate]);
 
   const recentDays = useMemo(() => {
-    const [year, month, day] = todayKey.split("-").map(Number);
+    const baseKey = windowEndKey ?? todayKey;
+    const [year, month, day] = baseKey.split("-").map(Number);
     if (!year || !month || !day) return [];
     const base = new Date(Date.UTC(year, month - 1, day));
-    const result: { key: string; label: string; isToday: boolean }[] = [];
-    for (let offset = 9; offset >= 0; offset -= 1) {
+    const result: { key: string; label: string; weekday: string; isToday: boolean }[] = [];
+    for (let offset = daysWindow - 1; offset >= 0; offset -= 1) {
       const date = new Date(base);
       date.setUTCDate(base.getUTCDate() - offset);
       const y = date.getUTCFullYear();
@@ -71,10 +73,14 @@ export default function DashboardPage() {
         day: "numeric",
         timeZone: "UTC",
       });
-      result.push({ key, label, isToday: key === todayKey });
+      const weekday = date.toLocaleDateString("en-US", {
+        weekday: "short",
+        timeZone: "UTC",
+      });
+      result.push({ key, label, weekday, isToday: key === todayKey });
     }
     return result;
-  }, [todayKey]);
+  }, [todayKey, daysWindow, windowEndKey]);
 
   const recentMonthKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -244,17 +250,17 @@ export default function DashboardPage() {
     });
   }
 
-  function changeMonth(direction: "prev" | "next") {
-    setCurrentDate((prev) => {
-      const next = new Date(prev);
-      next.setMonth(next.getMonth() + (direction === "prev" ? -1 : 1));
-      return next;
-    });
+  function shiftDays(direction: "prev" | "next") {
+    const baseKey = windowEndKey ?? todayKey;
+    const [year, month, day] = baseKey.split("-").map(Number);
+    if (!year || !month || !day) return;
+    const base = new Date(Date.UTC(year, month - 1, day));
+    base.setUTCDate(base.getUTCDate() + (direction === "prev" ? -7 : 7));
+    const y = base.getUTCFullYear();
+    const m = String(base.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(base.getUTCDate()).padStart(2, "0");
+    setWindowEndKey(`${y}-${m}-${d}`);
   }
-
-  const monthLabel = useMemo(() => {
-    return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(currentDate);
-  }, [currentDate]);
 
   if (loading) {
     return (
@@ -286,7 +292,20 @@ export default function DashboardPage() {
             total={progress.totalChecks}
           />
           <div className="flex-1">
-            <MonthNavigator label={monthLabel} onPrevious={() => changeMonth("prev")} onNext={() => changeMonth("next")} />
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <button
+                onClick={() => shiftDays("prev")}
+                className="flex items-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 py-2 text-xs text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+              >
+                {"\u2190"} Previous 7
+              </button>
+              <button
+                onClick={() => shiftDays("next")}
+                className="flex items-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 py-2 text-xs text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+              >
+                Next 7 {"\u2192"}
+              </button>
+            </div>
           </div>
         </div>
 
