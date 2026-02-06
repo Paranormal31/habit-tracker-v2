@@ -10,6 +10,7 @@ import { ProgressCard } from "@/components/ProgressCard";
 import { MonthNavigator } from "@/components/MonthNavigator";
 import { HabitGrid } from "@/components/HabitGrid";
 import { EmptyState } from "@/components/EmptyState";
+import { PageTabs } from "@/components/PageTabs";
 
 type User = {
   id: string;
@@ -253,6 +254,7 @@ export default function DashboardPage() {
       />
 
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+        <PageTabs active="dashboard" />
         <AddHabitInput onAdd={addHabit} />
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
