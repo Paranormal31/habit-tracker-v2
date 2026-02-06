@@ -10,13 +10,16 @@ type Habit = {
   createdAt: string;
 };
 
+type GridDay = {
+  key: string;
+  label: string;
+  isToday: boolean;
+};
+
 type HabitGridProps = {
   habits: Habit[];
-  days: number[];
-  year: number;
-  month: number;
+  days: GridDay[];
   todayKey: string;
-  isTodayMonth: boolean;
   completionSet: Set<string>;
   onToggle: (habitId: string, dateKey: string) => void;
   onToggleFreeze: (habitId: string) => void;
@@ -27,10 +30,7 @@ type HabitGridProps = {
 export function HabitGrid({
   habits,
   days,
-  year,
-  month,
   todayKey,
-  isTodayMonth,
   completionSet,
   onToggle,
   onToggleFreeze,
@@ -40,9 +40,9 @@ export function HabitGrid({
   return (
     <div className="rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)]">
       <div className="overflow-x-auto">
-        <div className="min-w-max">
+        <div className="min-w-0 sm:min-w-max">
           <div
-            className="grid gap-px bg-[color:var(--border-subtle)]"
+            className="hidden sm:grid gap-px bg-[color:var(--border-subtle)]"
             style={{
               gridTemplateColumns: `minmax(220px, 1fr) 130px repeat(${days.length}, 40px)`,
             }}
@@ -55,10 +55,10 @@ export function HabitGrid({
             </div>
             {days.map((day) => (
               <div
-                key={day}
+                key={day.key}
                 className="bg-[color:var(--bg-card)] px-2 py-3 text-center text-xs font-medium text-[color:var(--text-muted)]"
               >
-                {day}
+                {day.label}
               </div>
             ))}
           </div>
@@ -71,10 +71,7 @@ export function HabitGrid({
                 index={index}
                 totalHabits={habits.length}
                 days={days}
-                year={year}
-                month={month}
                 todayKey={todayKey}
-                isTodayMonth={isTodayMonth}
                 completionSet={completionSet}
                 onToggle={onToggle}
                 onToggleFreeze={onToggleFreeze}

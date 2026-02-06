@@ -43,7 +43,9 @@ export default function DayPlannerPage() {
 
   const [plannerDate, setPlannerDate] = useState(() => new Date());
   const [focus, setFocus] = useState("");
+  const [focusDone, setFocusDone] = useState(false);
   const [topThree, setTopThree] = useState(["", "", ""]);
+  const [topThreeDone, setTopThreeDone] = useState([false, false, false]);
   const [notes, setNotes] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
@@ -98,6 +100,14 @@ export default function DayPlannerPage() {
     setTopThree((prev) => {
       const next = [...prev];
       next[index] = value;
+      return next;
+    });
+  }
+
+  function toggleTopThreeDone(index: number) {
+    setTopThreeDone((prev) => {
+      const next = [...prev];
+      next[index] = !next[index];
       return next;
     });
   }
@@ -364,21 +374,58 @@ export default function DayPlannerPage() {
                 <h3 className="text-lg font-semibold">Daily Focus</h3>
                 <p className="text-sm text-[color:var(--text-muted)]">If you only win one thing, make it this.</p>
               </div>
-              <input
-                value={focus}
-                onChange={(event) => setFocus(event.target.value)}
-                placeholder="Main focus"
-                className="w-full rounded-lg border border-[color:var(--border-default)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60"
-              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFocusDone((prev) => !prev)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm transition ${
+                    focusDone
+                      ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
+                      : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/60"
+                  }`}
+                  aria-pressed={focusDone}
+                  aria-label="Mark daily focus completed"
+                >
+                  {focusDone ? "✓" : ""}
+                </button>
+                <input
+                  value={focus}
+                  onChange={(event) => setFocus(event.target.value)}
+                  placeholder="Main focus"
+                  className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60 ${
+                    focusDone
+                      ? "border-[color:var(--accent)]/60 text-[color:var(--text-muted)] line-through"
+                      : "border-[color:var(--border-default)]"
+                  }`}
+                />
+              </div>
               <div className="space-y-2">
                 {topThree.map((item, index) => (
-                  <input
-                    key={`top-${index}`}
-                    value={item}
-                    onChange={(event) => updateTopThree(index, event.target.value)}
-                    placeholder={`Top ${index + 1}`}
-                    className="w-full rounded-lg border border-[color:var(--border-default)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60"
-                  />
+                  <div key={`top-${index}`} className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleTopThreeDone(index)}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm transition ${
+                        topThreeDone[index]
+                          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
+                          : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/60"
+                      }`}
+                      aria-pressed={topThreeDone[index]}
+                      aria-label={`Mark Top ${index + 1} completed`}
+                    >
+                      {topThreeDone[index] ? "✓" : ""}
+                    </button>
+                    <input
+                      value={item}
+                      onChange={(event) => updateTopThree(index, event.target.value)}
+                      placeholder={`Top ${index + 1}`}
+                      className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60 ${
+                        topThreeDone[index]
+                          ? "border-[color:var(--accent)]/60 text-[color:var(--text-muted)] line-through"
+                          : "border-[color:var(--border-default)]"
+                      }`}
+                    />
+                  </div>
                 ))}
               </div>
             </section>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
-import { formatMonthKey, daysInMonth, getTodayInTimezone } from "@/lib/date";
+import { formatMonthKey, getTodayInTimezone } from "@/lib/date";
 import { AppHeader } from "@/components/AppHeader";
 import { AddHabitInput } from "@/components/AddHabitInput";
 import { ProgressCard } from "@/components/ProgressCard";
@@ -51,25 +51,47 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const monthKey = useMemo(() => formatMonthKey(currentDate), [currentDate]);
-  const daysCount = useMemo(() => daysInMonth(currentDate), [currentDate]);
-  const days = useMemo(() => Array.from({ length: daysCount }, (_, i) => i + 1), [daysCount]);
-
   const todayKey = useMemo(() => getTodayInTimezone(user?.timezone ?? "Asia/Kolkata"), [user?.timezone]);
-  const isTodayMonth = useMemo(() => {
-    const [y, m] = todayKey.split("-").map(Number);
-    return y === currentDate.getFullYear() && m === currentDate.getMonth() + 1;
-  }, [todayKey, currentDate]);
+  const monthKey = useMemo(() => formatMonthKey(currentDate), [currentDate]);
+
+  const recentDays = useMemo(() => {
+    const [year, month, day] = todayKey.split("-").map(Number);
+    if (!year || !month || !day) return [];
+    const base = new Date(Date.UTC(year, month - 1, day));
+    const result: { key: string; label: string; isToday: boolean }[] = [];
+    for (let offset = 9; offset >= 0; offset -= 1) {
+      const date = new Date(base);
+      date.setUTCDate(base.getUTCDate() - offset);
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(date.getUTCDate()).padStart(2, "0");
+      const key = `${y}-${m}-${d}`;
+      const label = date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      });
+      result.push({ key, label, isToday: key === todayKey });
+    }
+    return result;
+  }, [todayKey]);
+
+  const recentMonthKeys = useMemo(() => {
+    const keys = new Set<string>();
+    recentDays.forEach((day) => keys.add(day.key.slice(0, 7)));
+    return Array.from(keys);
+  }, [recentDays]);
 
   const loadMonthData = useCallback(async () => {
     if (!user) return;
     try {
-      const completions = await apiFetch<Completion[]>(
-        `/api/completions?month=${monthKey}`,
-        { method: "GET" }
+      const completionSets = await Promise.all(
+        recentMonthKeys.map((key) =>
+          apiFetch<Completion[]>(`/api/completions?month=${key}`, { method: "GET" })
+        )
       );
       const set = new Set<string>();
-      completions.forEach((c) => {
+      completionSets.flat().forEach((c) => {
         if (c.completed) set.add(`${c.habitId}|${c.date}`);
       });
       setCompletionSet(set);
@@ -82,7 +104,7 @@ export default function DashboardPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load progress");
     }
-  }, [user, monthKey]);
+  }, [user, monthKey, recentMonthKeys]);
 
   useEffect(() => {
     let active = true;
@@ -273,11 +295,8 @@ export default function DashboardPage() {
         ) : (
           <HabitGrid
             habits={habits}
-            days={days}
-            year={currentDate.getFullYear()}
-            month={currentDate.getMonth() + 1}
+            days={recentDays}
             todayKey={todayKey}
-            isTodayMonth={isTodayMonth}
             completionSet={completionSet}
             onToggle={toggleCompletion}
             onToggleFreeze={toggleFreeze}
