@@ -7,7 +7,7 @@ export async function apiFetch<T>(
   path: string,
   options: ApiOptions = {}
 ): Promise<T> {
-  const { json, headers, timeoutMs = 12000, signal, ...rest } = options;
+  const { json, headers, timeoutMs = 60000, signal, ...rest } = options;
 
   const controller = new AbortController();
   const signals = [controller.signal, signal].filter(Boolean) as AbortSignal[];
