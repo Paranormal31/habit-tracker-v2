@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const [currentDate] = useState(new Date());
   const [daysWindow] = useState(7);
   const [windowEndKey, setWindowEndKey] = useState<string | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +88,29 @@ export default function DashboardPage() {
     recentDays.forEach((day) => keys.add(day.key.slice(0, 7)));
     return Array.from(keys);
   }, [recentDays]);
+
+  const monthOptions = useMemo(() => {
+    const [year, month] = todayKey.split("-").map(Number);
+    if (!year || !month) return [];
+    const base = new Date(Date.UTC(year, month - 1, 1));
+    return Array.from({ length: 24 }, (_, i) => {
+      const date = new Date(base);
+      date.setUTCMonth(base.getUTCMonth() - i);
+      const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+      return { key, label };
+    });
+  }, [todayKey]);
+
+  useEffect(() => {
+    if (!selectedMonthKey) {
+      setSelectedMonthKey(todayKey.slice(0, 7));
+    }
+  }, [selectedMonthKey, todayKey]);
 
   const loadMonthData = useCallback(async () => {
     if (!user) return;
@@ -259,7 +283,28 @@ export default function DashboardPage() {
     const y = base.getUTCFullYear();
     const m = String(base.getUTCMonth() + 1).padStart(2, "0");
     const d = String(base.getUTCDate()).padStart(2, "0");
+    const nextKey = `${y}-${m}-${d}`;
+    setWindowEndKey(nextKey);
+    setSelectedMonthKey(nextKey.slice(0, 7));
+  }
+
+  function selectMonth(monthKeyValue: string) {
+    const [year, month] = monthKeyValue.split("-").map(Number);
+    if (!year || !month) return;
+
+    const todayMonthKey = todayKey.slice(0, 7);
+    if (monthKeyValue === todayMonthKey) {
+      setWindowEndKey(todayKey);
+      setSelectedMonthKey(monthKeyValue);
+      return;
+    }
+
+    const lastDay = new Date(Date.UTC(year, month, 0));
+    const y = lastDay.getUTCFullYear();
+    const m = String(lastDay.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(lastDay.getUTCDate()).padStart(2, "0");
     setWindowEndKey(`${y}-${m}-${d}`);
+    setSelectedMonthKey(monthKeyValue);
   }
 
   if (loading) {
@@ -292,16 +337,31 @@ export default function DashboardPage() {
             total={progress.totalChecks}
           />
           <div className="flex-1">
-            <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="ml-auto grid w-full max-w-[320px] grid-cols-2 gap-3">
+              <select
+                value={selectedMonthKey ?? todayKey.slice(0, 7)}
+                onChange={(event) => selectMonth(event.target.value)}
+                className="col-span-2 h-11 w-full rounded-full border border-[color:var(--border-default)] bg-transparent px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+              >
+                {monthOptions.map((option) => (
+                  <option
+                    key={option.key}
+                    value={option.key}
+                    className="bg-[color:var(--bg-card)] text-[color:var(--text-primary)]"
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={() => shiftDays("prev")}
-                className="flex items-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 py-2 text-xs text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
               >
                 {"\u2190"} Previous 7
               </button>
               <button
                 onClick={() => shiftDays("next")}
-                className="flex items-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 py-2 text-xs text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[color:var(--border-default)] px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
               >
                 Next 7 {"\u2192"}
               </button>
