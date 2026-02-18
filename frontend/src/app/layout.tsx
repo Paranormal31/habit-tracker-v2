@@ -9,12 +9,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Habit Tracker",
+  title: "HabitForge",
   description: "Track daily habits and build streaks.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Habit Tracker",
+    title: "HabitForge",
     statusBarStyle: "default"
   }
 };
