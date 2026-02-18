@@ -281,7 +281,7 @@ export default function DashboardPage() {
         onLogout={logout}
       />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6">
+      <main className="mx-auto max-w-[1080px] px-6 py-8 space-y-6">
         <PageTabs active="dashboard" />
         <AddHabitInput onAdd={addHabit} />
 

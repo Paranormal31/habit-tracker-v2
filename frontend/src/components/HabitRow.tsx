@@ -38,9 +38,12 @@ export function HabitRow({
   onMove,
 }: HabitRowProps) {
   const completedToday = completionSet.has(`${habit.id}|${todayKey}`);
+  const rowTone = index % 2 === 0 ? "bg-[color:var(--bg-card)]" : "bg-[#11161c]";
   return (
     <div className="space-y-3">
-      <div className="group rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)] p-4 sm:hidden">
+      <div
+        className={`group rounded-xl border border-[color:var(--border-subtle)] p-4 transition-colors duration-200 hover:border-[color:var(--accent)]/40 hover:bg-[color:var(--accent)]/[0.07] sm:hidden ${rowTone}`}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-medium">{habit.name}</div>
@@ -122,12 +125,12 @@ export function HabitRow({
       </div>
 
       <div
-        className="group hidden sm:grid gap-px bg-[color:var(--border-subtle)]"
+        className="group hidden sm:grid gap-px bg-[color:var(--border-subtle)] transition-colors duration-200 hover:ring-1 hover:ring-[color:var(--accent)]/35"
         style={{
           gridTemplateColumns: `minmax(220px, 1fr) 130px repeat(${days.length}, 40px)`,
         }}
       >
-        <div className="flex items-center justify-between bg-[color:var(--bg-card)] px-4 py-3">
+        <div className={`flex items-center justify-between px-4 py-3 transition-colors duration-200 group-hover:bg-[color:var(--accent)]/[0.07] ${rowTone}`}>
           <span className="text-sm font-medium">{habit.name}</span>
           <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
             <button
@@ -156,7 +159,7 @@ export function HabitRow({
           </div>
         </div>
 
-        <div className="flex items-center justify-between bg-[color:var(--bg-card)] px-3 py-3">
+        <div className={`flex items-center justify-between px-3 py-3 transition-colors duration-200 group-hover:bg-[color:var(--accent)]/[0.07] ${rowTone}`}>
           <span
             className={`text-sm font-semibold ${
               habit.streak > 0 ? "text-[color:var(--accent)]" : "text-[color:var(--text-muted)]"
@@ -188,7 +191,7 @@ export function HabitRow({
           return (
             <div
               key={key}
-              className="bg-[color:var(--bg-card)] p-1.5"
+              className={`p-1.5 transition-colors duration-200 group-hover:bg-[color:var(--accent)]/[0.07] ${rowTone}`}
             >
               <button
                 onClick={() => onToggle(habit.id, key)}
