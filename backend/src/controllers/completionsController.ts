@@ -3,8 +3,8 @@ import { AuthRequest } from "../middleware/auth";
 import { Habit } from "../models/Habit";
 import { HabitCompletion } from "../models/HabitCompletion";
 import { getCompletionsSchema, toggleCompletionSchema } from "../validators/completions";
-import { getTodayInTimezone, isValidDateString, addDays, parseMonth } from "../utils/date";
-import { recomputeStreak } from "../utils/streak";
+import { getTodayInTimezone, isValidDateString, parseMonth } from "../utils/date";
+import { recomputeAndNormalizeHabitStreak } from "../utils/streakState";
 
 export async function getCompletionsForMonth(req: AuthRequest, res: Response) {
   if (!req.userId) {
@@ -64,18 +64,11 @@ export async function toggleCompletion(req: AuthRequest, res: Response) {
   }
 
   const today = await getTodayInTimezone(req.userId);
-  if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
-    habit.streakFreezeDate = null;
-  }
-  const streak = await recomputeStreak({
+  const { streak } = await recomputeAndNormalizeHabitStreak({
+    habit,
     userId: req.userId,
-    habitId: data.habitId,
-    today,
-    freezeDate: habit.streakFreezeDate ?? null
+    today
   });
-
-  habit.streak = streak;
-  await habit.save();
 
   return res.json({
     habitId: data.habitId,

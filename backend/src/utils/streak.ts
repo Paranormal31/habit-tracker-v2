@@ -19,18 +19,26 @@ export async function recomputeStreak(params: {
   let skippedFreeze = false;
 
   while (true) {
+    // Grace rule: missing today does not break streak until local day rollover.
+    if (cursor === params.today && !set.has(cursor) && params.freezeDate !== cursor) {
+      cursor = addDays(cursor, -1);
+      continue;
+    }
+
     if (set.has(cursor)) {
       streak += 1;
       cursor = addDays(cursor, -1);
       continue;
     }
 
+    // Freeze protects exactly one missing day wherever it appears in the chain.
     if (!skippedFreeze && params.freezeDate && cursor === params.freezeDate) {
       skippedFreeze = true;
       cursor = addDays(cursor, -1);
       continue;
     }
 
+    // Any other gap breaks the contiguous streak.
     break;
   }
 

@@ -4,7 +4,7 @@ import { HabitCompletion } from "../models/HabitCompletion";
 import { AuthRequest } from "../middleware/auth";
 import { createHabitSchema, updateHabitSchema, reorderHabitsSchema } from "../validators/habits";
 import { getTodayInTimezone } from "../utils/date";
-import { recomputeStreak } from "../utils/streak";
+import { recomputeAndNormalizeHabitStreak } from "../utils/streakState";
 
 export async function listHabits(req: AuthRequest, res: Response) {
   if (!req.userId) {
@@ -13,17 +13,11 @@ export async function listHabits(req: AuthRequest, res: Response) {
   const today = await getTodayInTimezone(req.userId);
   const habits = await Habit.find({ userId: req.userId }).sort({ order: 1 });
   for (const habit of habits) {
-    if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
-      habit.streakFreezeDate = null;
-      const streak = await recomputeStreak({
-        userId: req.userId,
-        habitId: habit._id.toString(),
-        today,
-        freezeDate: null
-      });
-      habit.streak = streak;
-      await habit.save();
-    }
+    await recomputeAndNormalizeHabitStreak({
+      habit,
+      userId: req.userId,
+      today
+    });
   }
   return res.json(
     habits.map((h) => ({
@@ -139,10 +133,6 @@ export async function toggleStreakFreeze(req: AuthRequest, res: Response) {
   }
 
   const today = await getTodayInTimezone(req.userId);
-  if (habit.streakFreezeDate && habit.streakFreezeDate !== today) {
-    habit.streakFreezeDate = null;
-  }
-
   const completedToday = await HabitCompletion.findOne({
     userId: req.userId,
     habitId: habit._id,
@@ -157,20 +147,16 @@ export async function toggleStreakFreeze(req: AuthRequest, res: Response) {
   const alreadyFrozenToday = habit.streakFreezeDate === today;
   habit.streakFreezeDate = alreadyFrozenToday ? null : today;
 
-  const streak = await recomputeStreak({
+  const { streak, streakFreezeDate } = await recomputeAndNormalizeHabitStreak({
+    habit,
     userId: req.userId,
-    habitId: habit._id.toString(),
-    today,
-    freezeDate: habit.streakFreezeDate ?? null
+    today
   });
-
-  habit.streak = streak;
-  await habit.save();
 
   return res.json({
     habitId: habit._id.toString(),
     streak,
-    streakFreezeDate: habit.streakFreezeDate ?? null,
-    isFrozenToday: habit.streakFreezeDate === today
+    streakFreezeDate,
+    isFrozenToday: streakFreezeDate === today
   });
 }
