@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: "HabitForge",
   description: "Track daily habits and build streaks.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+    shortcut: "/icons/icon-192.png"
+  },
   appleWebApp: {
     capable: true,
     title: "HabitForge",
