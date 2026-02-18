@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth";
 import habitsRoutes from "./routes/habits";
 import completionsRoutes from "./routes/completions";
 import progressRoutes from "./routes/progress";
+import dailyFocusRoutes from "./routes/dailyFocus";
 import { errorHandler } from "./middleware/errorHandler";
 
 export function createApp() {
@@ -52,6 +53,7 @@ export function createApp() {
   app.use("/api/habits", habitsRoutes);
   app.use("/api/completions", completionsRoutes);
   app.use("/api/progress", progressRoutes);
+  app.use("/api/daily-focus", dailyFocusRoutes);
 
   app.use(errorHandler);
 

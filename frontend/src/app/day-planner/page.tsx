@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppHeader } from "@/components/AppHeader";
@@ -26,7 +26,35 @@ type TimeBlock = {
   notes: string;
 };
 
+type FocusLabel = "primary" | "secondary" | "tertiary";
+
+type DailyFocusItem = {
+  label: FocusLabel;
+  text: string;
+  done: boolean;
+};
+
+type DailyFocusResponse = {
+  date: string;
+  items: DailyFocusItem[];
+};
+
+const focusLabels: FocusLabel[] = ["primary", "secondary", "tertiary"];
+
 const defaultBlocks: TimeBlock[] = [];
+
+function createDefaultDailyFocusItems(): DailyFocusItem[] {
+  return focusLabels.map((label) => ({ label, text: "", done: false }));
+}
+
+function formatPlannerDateKey(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
 
 function createId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -42,10 +70,14 @@ export default function DayPlannerPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [plannerDate, setPlannerDate] = useState(() => new Date());
-  const [focus, setFocus] = useState("");
-  const [focusDone, setFocusDone] = useState(false);
-  const [topThree, setTopThree] = useState(["", "", ""]);
-  const [topThreeDone, setTopThreeDone] = useState([false, false, false]);
+  const [dailyFocusItems, setDailyFocusItems] = useState<DailyFocusItem[]>(
+    createDefaultDailyFocusItems
+  );
+  const [dailyFocusSaving, setDailyFocusSaving] = useState(false);
+  const [dailyFocusStatus, setDailyFocusStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [notes, setNotes] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
@@ -53,6 +85,7 @@ export default function DayPlannerPage() {
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => defaultBlocks);
   const [newBlockTime, setNewBlockTime] = useState("");
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
+  const dailyFocusStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +117,11 @@ export default function DayPlannerPage() {
     }).format(plannerDate);
   }, [plannerDate, user?.timezone]);
 
+  const plannerDateKey = useMemo(() => {
+    if (!user?.timezone) return "";
+    return formatPlannerDateKey(plannerDate, user.timezone);
+  }, [plannerDate, user?.timezone]);
+
   function changeDay(direction: "prev" | "next") {
     setPlannerDate((prev) => {
       const next = new Date(prev);
@@ -96,20 +134,107 @@ export default function DayPlannerPage() {
     setPlannerDate(new Date());
   }
 
-  function updateTopThree(index: number, value: string) {
-    setTopThree((prev) => {
+  useEffect(() => {
+    return () => {
+      if (dailyFocusStatusTimer.current) {
+        clearTimeout(dailyFocusStatusTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user?.timezone || !plannerDateKey) return;
+    let active = true;
+
+    async function loadDailyFocus() {
+      try {
+        const response = await apiFetch<DailyFocusResponse>(
+          `/api/daily-focus?date=${plannerDateKey}`,
+          { method: "GET" }
+        );
+        if (!active) return;
+        setDailyFocusItems(normalizeDailyFocusItems(response.items));
+      } catch {
+        if (!active) return;
+        setDailyFocusItems(createDefaultDailyFocusItems());
+        setTransientDailyFocusStatus("error", "Could not load Daily Focus for this day.");
+      }
+    }
+
+    loadDailyFocus();
+    return () => {
+      active = false;
+    };
+  }, [plannerDateKey, user?.timezone]);
+
+  function setTransientDailyFocusStatus(
+    type: "success" | "error",
+    message: string
+  ) {
+    if (dailyFocusStatusTimer.current) {
+      clearTimeout(dailyFocusStatusTimer.current);
+    }
+    setDailyFocusStatus({ type, message });
+    dailyFocusStatusTimer.current = setTimeout(() => {
+      setDailyFocusStatus(null);
+    }, 3000);
+  }
+
+  function normalizeDailyFocusItems(items: DailyFocusItem[]): DailyFocusItem[] {
+    const map = new Map<FocusLabel, DailyFocusItem>();
+    for (const item of items) {
+      if (focusLabels.includes(item.label)) {
+        map.set(item.label, {
+          label: item.label,
+          text: item.text ?? "",
+          done: Boolean(item.done),
+        });
+      }
+    }
+    return focusLabels.map((label) => map.get(label) ?? { label, text: "", done: false });
+  }
+
+  function updateDailyFocusText(label: FocusLabel, value: string) {
+    setDailyFocusItems((prev) => {
       const next = [...prev];
-      next[index] = value;
+      const index = next.findIndex((item) => item.label === label);
+      if (index < 0) return prev;
+      next[index] = { ...next[index], text: value };
       return next;
     });
   }
 
-  function toggleTopThreeDone(index: number) {
-    setTopThreeDone((prev) => {
+  function toggleDailyFocusDone(label: FocusLabel) {
+    setDailyFocusItems((prev) => {
       const next = [...prev];
-      next[index] = !next[index];
+      const index = next.findIndex((item) => item.label === label);
+      if (index < 0) return prev;
+      next[index] = { ...next[index], done: !next[index].done };
       return next;
     });
+  }
+
+  async function saveDailyFocus() {
+    if (!plannerDateKey) return;
+    try {
+      setDailyFocusSaving(true);
+      const response = await apiFetch<DailyFocusResponse>("/api/daily-focus", {
+        method: "PUT",
+        json: {
+          date: plannerDateKey,
+          items: dailyFocusItems,
+        },
+      });
+      setDailyFocusItems(normalizeDailyFocusItems(response.items));
+      setTransientDailyFocusStatus("success", "Daily Focus saved.");
+    } catch (err) {
+      setTransientDailyFocusStatus(
+        "error",
+        err instanceof Error ? err.message : "Could not save Daily Focus."
+      );
+    } finally {
+      setDailyFocusSaving(false);
+    }
   }
 
   function addTask() {
@@ -370,57 +495,55 @@ export default function DayPlannerPage() {
 
           <div className="space-y-6">
             <section className="rounded-2xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-6 space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Daily Focus</h3>
-                <p className="text-sm text-[color:var(--text-muted)]">If you only win one thing, make it this.</p>
-              </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">Daily Focus</h3>
+                  <p className="text-sm text-[color:var(--text-muted)]">
+                    If you only win one thing, make it this.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setFocusDone((prev) => !prev)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm transition ${
-                    focusDone
-                      ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
-                      : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/60"
-                  }`}
-                  aria-pressed={focusDone}
-                  aria-label="Mark daily focus completed"
+                  onClick={saveDailyFocus}
+                  disabled={dailyFocusSaving}
+                  className="rounded-lg border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/20 px-4 py-2 text-sm text-[color:var(--accent)] hover:bg-[color:var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {focusDone ? "✓" : ""}
+                  {dailyFocusSaving ? "Saving..." : "Save"}
                 </button>
-                <input
-                  value={focus}
-                  onChange={(event) => setFocus(event.target.value)}
-                  placeholder="Main focus"
-                  className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60 ${
-                    focusDone
-                      ? "border-[color:var(--accent)]/60 text-[color:var(--text-muted)] line-through"
-                      : "border-[color:var(--border-default)]"
-                  }`}
-                />
               </div>
+              {dailyFocusStatus && (
+                <div
+                  className={`rounded-lg border px-3 py-2 text-xs ${
+                    dailyFocusStatus.type === "success"
+                      ? "border-[color:var(--accent)]/40 bg-[color:var(--accent)]/10 text-[color:var(--accent)]"
+                      : "border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 text-[color:var(--danger)]"
+                  }`}
+                >
+                  {dailyFocusStatus.message}
+                </div>
+              )}
               <div className="space-y-2">
-                {topThree.map((item, index) => (
-                  <div key={`top-${index}`} className="flex items-center gap-3">
+                {dailyFocusItems.map((item) => (
+                  <div key={item.label} className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => toggleTopThreeDone(index)}
+                      onClick={() => toggleDailyFocusDone(item.label)}
                       className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm transition ${
-                        topThreeDone[index]
+                        item.done
                           ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-black"
                           : "border-[color:var(--border-default)] text-[color:var(--text-muted)] hover:border-[color:var(--accent)]/60"
                       }`}
-                      aria-pressed={topThreeDone[index]}
-                      aria-label={`Mark Top ${index + 1} completed`}
+                      aria-pressed={item.done}
+                      aria-label={`Mark ${item.label} focus completed`}
                     >
-                      {topThreeDone[index] ? "✓" : ""}
+                      {item.done ? "\u2713" : ""}
                     </button>
                     <input
-                      value={item}
-                      onChange={(event) => updateTopThree(index, event.target.value)}
-                      placeholder={`Top ${index + 1}`}
+                      value={item.text}
+                      onChange={(event) => updateDailyFocusText(item.label, event.target.value)}
+                      placeholder={item.label[0].toUpperCase() + item.label.slice(1)}
                       className={`w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60 ${
-                        topThreeDone[index]
+                        item.done
                           ? "border-[color:var(--accent)]/60 text-[color:var(--text-muted)] line-through"
                           : "border-[color:var(--border-default)]"
                       }`}
