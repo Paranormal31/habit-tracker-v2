@@ -27,7 +27,7 @@ describe("auth", () => {
     expect(meAfterLogout.status).toBe(401);
 
     const loginRes = await agent.post("/api/auth/login").send({
-      email: "test@example.com",
+      identifier: "test@example.com",
       password: "Password123"
     });
     expect(loginRes.status).toBe(200);

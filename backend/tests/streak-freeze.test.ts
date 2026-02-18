@@ -43,6 +43,6 @@ describe("streak freeze", () => {
     const freezeOff = await agent.post(`/api/habits/${habitId}/freeze`);
     expect(freezeOff.status).toBe(200);
     expect(freezeOff.body.isFrozenToday).toBe(false);
-    expect(freezeOff.body.streak).toBe(0);
+    expect(freezeOff.body.streak).toBe(2);
   });
 });

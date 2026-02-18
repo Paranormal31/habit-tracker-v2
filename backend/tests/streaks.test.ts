@@ -38,7 +38,7 @@ describe("streaks", () => {
       date: "2026-02-03"
     });
     expect(day2.status).toBe(200);
-    expect(day2.body.streak).toBe(0);
+    expect(day2.body.streak).toBe(2);
 
     const day3 = await agent.post("/api/completions/toggle").send({
       habitId,

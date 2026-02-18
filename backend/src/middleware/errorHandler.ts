@@ -10,5 +10,8 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (err instanceof ZodError) {
     return res.status(400).json({ message: "Invalid request", issues: err.issues });
   }
+  if (err instanceof Error && err.message === "CORS origin not allowed") {
+    return res.status(403).json({ message: "CORS origin not allowed" });
+  }
   res.status(500).json({ message: "Internal server error" });
 }

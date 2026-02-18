@@ -19,10 +19,14 @@ function signToken(userId: string) {
 
 function setAuthCookie(req: Request, res: Response, token: string) {
   const origin = req.headers.origin ?? "";
-  const isLocalhost = origin.includes("http://localhost");
+  const isLocalhost =
+    !origin ||
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1");
+  const isProduction = env.NODE_ENV === "production";
   res.cookie("auth_token", token, {
     httpOnly: true,
-    secure: !isLocalhost,
+    secure: isProduction ? true : !isLocalhost,
     sameSite: isLocalhost ? "lax" : "none",
     maxAge: 1000 * 60 * 60 * 24 * 7
   });
@@ -83,15 +87,22 @@ export async function login(req: Request, res: Response) {
   });
 }
 
-export async function logout(_req: Request, res: Response) {
-  res.clearCookie("auth_token");
+export async function logout(req: Request, res: Response) {
+  const origin = req.headers.origin ?? "";
+  const isLocalhost =
+    !origin ||
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1");
+  const isProduction = env.NODE_ENV === "production";
+  res.clearCookie("auth_token", {
+    httpOnly: true,
+    secure: isProduction ? true : !isLocalhost,
+    sameSite: isLocalhost ? "lax" : "none"
+  });
   return res.json({ ok: true });
 }
 
 export async function me(req: Request, res: Response) {
-  // Debug: verify auth cookie arrives in production
-  // eslint-disable-next-line no-console
-  console.log(`[auth/me] origin=${req.headers.origin ?? "unknown"} cookie=${req.headers.cookie ?? "none"}`);
   const token = req.cookies?.auth_token;
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
