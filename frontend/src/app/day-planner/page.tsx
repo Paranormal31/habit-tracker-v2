@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppHeader } from "@/components/AppHeader";
@@ -73,7 +73,6 @@ export default function DayPlannerPage() {
   const [dailyFocusItems, setDailyFocusItems] = useState<DailyFocusItem[]>(
     createDefaultDailyFocusItems
   );
-  const [dailyFocusSaving, setDailyFocusSaving] = useState(false);
   const [dailyFocusStatus, setDailyFocusStatus] = useState<{
     type: "success" | "error";
     message: string;
@@ -86,6 +85,14 @@ export default function DayPlannerPage() {
   const [newBlockTime, setNewBlockTime] = useState("");
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
   const dailyFocusStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blocksSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blocksRef = useRef<TimeBlock[]>(defaultBlocks);
+  const tasksSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tasksRef = useRef<Task[]>([]);
+  const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesRef = useRef<string>("");
+  const dailyFocusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dailyFocusRef = useRef<DailyFocusItem[]>(createDefaultDailyFocusItems());
 
   useEffect(() => {
     let active = true;
@@ -136,35 +143,168 @@ export default function DayPlannerPage() {
 
   useEffect(() => {
     return () => {
-      if (dailyFocusStatusTimer.current) {
-        clearTimeout(dailyFocusStatusTimer.current);
-      }
+      if (dailyFocusStatusTimer.current) clearTimeout(dailyFocusStatusTimer.current);
+      if (blocksSaveTimer.current) clearTimeout(blocksSaveTimer.current);
+      if (tasksSaveTimer.current) clearTimeout(tasksSaveTimer.current);
+      if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+      if (dailyFocusSaveTimer.current) clearTimeout(dailyFocusSaveTimer.current);
     };
   }, []);
 
+  const saveBlocksToServer = useCallback(
+    async (blocksToSave: TimeBlock[], dateKey: string) => {
+      try {
+        await apiFetch("/api/time-blocks", {
+          method: "PUT",
+          json: { date: dateKey, blocks: blocksToSave },
+        });
+      } catch {
+        // silent — best-effort
+      }
+    },
+    []
+  );
+
+  const saveTasksToServer = useCallback(
+    async (tasksToSave: Task[], dateKey: string) => {
+      try {
+        await apiFetch("/api/task-stack", {
+          method: "PUT",
+          json: {
+            date: dateKey,
+            tasks: tasksToSave.map((t) => ({
+              taskId: t.id,
+              title: t.title,
+              priority: t.priority,
+              done: t.done,
+            })),
+          },
+        });
+      } catch {
+        // silent — best-effort
+      }
+    },
+    []
+  );
+
+  const saveNotesToServer = useCallback(
+    async (content: string, dateKey: string) => {
+      try {
+        await apiFetch("/api/planner-notes", {
+          method: "PUT",
+          json: { date: dateKey, content },
+        });
+      } catch {
+        // silent — best-effort
+      }
+    },
+    []
+  );
+
+  const saveDailyFocusToServer = useCallback(
+    async (items: DailyFocusItem[], dateKey: string) => {
+      try {
+        await apiFetch("/api/daily-focus", {
+          method: "PUT",
+          json: { date: dateKey, items },
+        });
+      } catch {
+        // silent — best-effort
+      }
+    },
+    []
+  );
+
+  // ── Load time blocks ──
   useEffect(() => {
     if (!user?.timezone || !plannerDateKey) return;
     let active = true;
+    (async () => {
+      try {
+        const r = await apiFetch<{ date: string; blocks: TimeBlock[] }>(
+          `/api/time-blocks?date=${plannerDateKey}`,
+          { method: "GET" }
+        );
+        if (!active) return;
+        setBlocks(r.blocks ?? []);
+        blocksRef.current = r.blocks ?? [];
+      } catch {
+        if (!active) return;
+        setBlocks([]);
+        blocksRef.current = [];
+      }
+    })();
+    return () => { active = false; };
+  }, [plannerDateKey, user?.timezone]);
 
-    async function loadDailyFocus() {
+  // ── Load task stack ──
+  useEffect(() => {
+    if (!user?.timezone || !plannerDateKey) return;
+    let active = true;
+    (async () => {
+      try {
+        const r = await apiFetch<{ date: string; tasks: { taskId: string; title: string; priority: Task["priority"]; done: boolean }[] }>(
+          `/api/task-stack?date=${plannerDateKey}`,
+          { method: "GET" }
+        );
+        if (!active) return;
+        const mapped = (r.tasks ?? []).map((t) => ({ id: t.taskId, title: t.title, priority: t.priority, done: t.done }));
+        setTasks(mapped);
+        tasksRef.current = mapped;
+      } catch {
+        if (!active) return;
+        setTasks([]);
+        tasksRef.current = [];
+      }
+    })();
+    return () => { active = false; };
+  }, [plannerDateKey, user?.timezone]);
+
+  // ── Load planner notes ──
+  useEffect(() => {
+    if (!user?.timezone || !plannerDateKey) return;
+    let active = true;
+    (async () => {
+      try {
+        const r = await apiFetch<{ date: string; content: string }>(
+          `/api/planner-notes?date=${plannerDateKey}`,
+          { method: "GET" }
+        );
+        if (!active) return;
+        setNotes(r.content ?? "");
+        notesRef.current = r.content ?? "";
+      } catch {
+        if (!active) return;
+        setNotes("");
+        notesRef.current = "";
+      }
+    })();
+    return () => { active = false; };
+  }, [plannerDateKey, user?.timezone]);
+
+  // ── Load daily focus ──
+  useEffect(() => {
+    if (!user?.timezone || !plannerDateKey) return;
+    let active = true;
+    (async () => {
       try {
         const response = await apiFetch<DailyFocusResponse>(
           `/api/daily-focus?date=${plannerDateKey}`,
           { method: "GET" }
         );
         if (!active) return;
-        setDailyFocusItems(normalizeDailyFocusItems(response.items));
+        const items = normalizeDailyFocusItems(response.items);
+        setDailyFocusItems(items);
+        dailyFocusRef.current = items;
       } catch {
         if (!active) return;
-        setDailyFocusItems(createDefaultDailyFocusItems());
+        const items = createDefaultDailyFocusItems();
+        setDailyFocusItems(items);
+        dailyFocusRef.current = items;
         setTransientDailyFocusStatus("error", "Could not load Daily Focus for this day.");
       }
-    }
-
-    loadDailyFocus();
-    return () => {
-      active = false;
-    };
+    })();
+    return () => { active = false; };
   }, [plannerDateKey, user?.timezone]);
 
   function setTransientDailyFocusStatus(
@@ -194,12 +334,21 @@ export default function DayPlannerPage() {
     return focusLabels.map((label) => map.get(label) ?? { label, text: "", done: false });
   }
 
+  function debounceDailyFocusSave(items: DailyFocusItem[]) {
+    dailyFocusRef.current = items;
+    if (dailyFocusSaveTimer.current) clearTimeout(dailyFocusSaveTimer.current);
+    dailyFocusSaveTimer.current = setTimeout(() => {
+      if (plannerDateKey) saveDailyFocusToServer(dailyFocusRef.current, plannerDateKey);
+    }, 600);
+  }
+
   function updateDailyFocusText(label: FocusLabel, value: string) {
     setDailyFocusItems((prev) => {
       const next = [...prev];
       const index = next.findIndex((item) => item.label === label);
       if (index < 0) return prev;
       next[index] = { ...next[index], text: value };
+      debounceDailyFocusSave(next);
       return next;
     });
   }
@@ -210,68 +359,91 @@ export default function DayPlannerPage() {
       const index = next.findIndex((item) => item.label === label);
       if (index < 0) return prev;
       next[index] = { ...next[index], done: !next[index].done };
+      // toggle saves immediately
+      dailyFocusRef.current = next;
+      if (plannerDateKey) saveDailyFocusToServer(next, plannerDateKey);
       return next;
     });
-  }
-
-  async function saveDailyFocus() {
-    if (!plannerDateKey) return;
-    try {
-      setDailyFocusSaving(true);
-      const response = await apiFetch<DailyFocusResponse>("/api/daily-focus", {
-        method: "PUT",
-        json: {
-          date: plannerDateKey,
-          items: dailyFocusItems,
-        },
-      });
-      setDailyFocusItems(normalizeDailyFocusItems(response.items));
-      setTransientDailyFocusStatus("success", "Daily Focus saved.");
-    } catch (err) {
-      setTransientDailyFocusStatus(
-        "error",
-        err instanceof Error ? err.message : "Could not save Daily Focus."
-      );
-    } finally {
-      setDailyFocusSaving(false);
-    }
   }
 
   function addTask() {
     const title = newTask.trim();
     if (!title) return;
-    setTasks((prev) => [
-      ...prev,
-      { id: createId(), title, priority: newPriority, done: false },
-    ]);
+    setTasks((prev) => {
+      const next = [
+        ...prev,
+        { id: createId(), title, priority: newPriority, done: false },
+      ];
+      tasksRef.current = next;
+      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
+      return next;
+    });
     setNewTask("");
   }
 
   function toggleTask(id: string) {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, done: !task.done } : task))
-    );
+    setTasks((prev) => {
+      const next = prev.map((task) =>
+        task.id === id ? { ...task, done: !task.done } : task
+      );
+      tasksRef.current = next;
+      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
+      return next;
+    });
   }
 
   function removeTask(id: string) {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setTasks((prev) => {
+      const next = prev.filter((task) => task.id !== id);
+      tasksRef.current = next;
+      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
+      return next;
+    });
+  }
+
+  function handleNotesChange(value: string) {
+    setNotes(value);
+    notesRef.current = value;
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    notesSaveTimer.current = setTimeout(() => {
+      if (plannerDateKey) saveNotesToServer(notesRef.current, plannerDateKey);
+    }, 600);
   }
 
   function updateBlock(index: number, field: keyof TimeBlock, value: string) {
-    setBlocks((prev) =>
-      prev.map((block, i) => (i === index ? { ...block, [field]: value } : block))
-    );
+    setBlocks((prev) => {
+      const next = prev.map((block, i) =>
+        i === index ? { ...block, [field]: value } : block
+      );
+      blocksRef.current = next;
+      // Debounce save on text edits
+      if (blocksSaveTimer.current) clearTimeout(blocksSaveTimer.current);
+      blocksSaveTimer.current = setTimeout(() => {
+        if (plannerDateKey) saveBlocksToServer(blocksRef.current, plannerDateKey);
+      }, 600);
+      return next;
+    });
   }
 
   function addBlock() {
     const time = newBlockTime.trim();
     if (!time) return;
-    setBlocks((prev) => [...prev, { time, plan: "", notes: "" }]);
+    setBlocks((prev) => {
+      const next = [...prev, { time, plan: "", notes: "" }];
+      blocksRef.current = next;
+      if (plannerDateKey) saveBlocksToServer(next, plannerDateKey);
+      return next;
+    });
     setNewBlockTime("");
   }
 
   function removeBlock(index: number) {
-    setBlocks((prev) => prev.filter((_, i) => i !== index));
+    setBlocks((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      blocksRef.current = next;
+      if (plannerDateKey) saveBlocksToServer(next, plannerDateKey);
+      return next;
+    });
   }
 
   function reorderBlocks(fromIndex: number, toIndex: number) {
@@ -280,6 +452,8 @@ export default function DayPlannerPage() {
       const next = [...prev];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
+      blocksRef.current = next;
+      if (plannerDateKey) saveBlocksToServer(next, plannerDateKey);
       return next;
     });
   }
@@ -495,21 +669,11 @@ export default function DayPlannerPage() {
 
           <div className="space-y-6">
             <section className="rounded-2xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-6 space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold">Daily Focus</h3>
-                  <p className="text-sm text-[color:var(--text-muted)]">
-                    If you only win one thing, make it this.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={saveDailyFocus}
-                  disabled={dailyFocusSaving}
-                  className="rounded-lg border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/20 px-4 py-2 text-sm text-[color:var(--accent)] hover:bg-[color:var(--accent)]/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {dailyFocusSaving ? "Saving..." : "Save"}
-                </button>
+              <div>
+                <h3 className="text-lg font-semibold">Daily Focus</h3>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  If you only win one thing, make it this.
+                </p>
               </div>
               {dailyFocusStatus && (
                 <div
@@ -560,7 +724,7 @@ export default function DayPlannerPage() {
               </div>
               <textarea
                 value={notes}
-                onChange={(event) => setNotes(event.target.value)}
+                onChange={(event) => handleNotesChange(event.target.value)}
                 placeholder="What else matters today?"
                 rows={8}
                 className="w-full rounded-lg border border-[color:var(--border-default)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60"

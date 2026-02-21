@@ -9,6 +9,9 @@ import habitsRoutes from "./routes/habits";
 import completionsRoutes from "./routes/completions";
 import progressRoutes from "./routes/progress";
 import dailyFocusRoutes from "./routes/dailyFocus";
+import timeBlocksRoutes from "./routes/timeBlocks";
+import taskStackRoutes from "./routes/taskStack";
+import plannerNotesRoutes from "./routes/plannerNotes";
 import { errorHandler } from "./middleware/errorHandler";
 
 function parseAllowedOrigins(value: string): string[] {
@@ -85,6 +88,9 @@ export function createApp() {
   app.use("/api/completions", completionsRoutes);
   app.use("/api/progress", progressRoutes);
   app.use("/api/daily-focus", dailyFocusRoutes);
+  app.use("/api/time-blocks", timeBlocksRoutes);
+  app.use("/api/task-stack", taskStackRoutes);
+  app.use("/api/planner-notes", plannerNotesRoutes);
 
   app.use(errorHandler);
 
