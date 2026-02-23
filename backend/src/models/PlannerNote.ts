@@ -4,7 +4,7 @@ const plannerNoteSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     date: { type: String, required: true },
-    content: { type: String, required: true, default: "" }
+    content: { type: String, default: "" }
   },
   { timestamps: true }
 );

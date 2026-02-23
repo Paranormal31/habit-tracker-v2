@@ -16,7 +16,7 @@ const dailyFocusItemSchema = new Schema<DailyFocusItem>(
       enum: DAILY_FOCUS_LABELS,
       required: true
     },
-    text: { type: String, required: true, trim: true, default: "" },
+    text: { type: String, trim: true, default: "" },
     done: { type: Boolean, required: true, default: false }
   },
   { _id: false }

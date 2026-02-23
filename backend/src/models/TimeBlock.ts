@@ -9,8 +9,8 @@ type TimeBlockItem = {
 const timeBlockItemSchema = new Schema<TimeBlockItem>(
   {
     time: { type: String, required: true, trim: true },
-    plan: { type: String, required: true, trim: true, default: "" },
-    notes: { type: String, required: true, trim: true, default: "" }
+    plan: { type: String, trim: true, default: "" },
+    notes: { type: String, trim: true, default: "" }
   },
   { _id: false }
 );

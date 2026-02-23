@@ -13,12 +13,6 @@ type User = {
   timezone: string;
 };
 
-type Task = {
-  id: string;
-  title: string;
-  priority: "low" | "medium" | "high";
-  done: boolean;
-};
 
 type TimeBlock = {
   time: string;
@@ -41,6 +35,7 @@ type DailyFocusResponse = {
 
 const focusLabels: FocusLabel[] = ["primary", "secondary", "tertiary"];
 
+
 const defaultBlocks: TimeBlock[] = [];
 
 function createDefaultDailyFocusItems(): DailyFocusItem[] {
@@ -48,20 +43,19 @@ function createDefaultDailyFocusItems(): DailyFocusItem[] {
 }
 
 function formatPlannerDateKey(date: Date, timeZone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(date);
+  });
+  const parts = formatter.formatToParts(date);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${m}-${d}`;
 }
 
-function createId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 export default function DayPlannerPage() {
   const router = useRouter();
@@ -78,17 +72,17 @@ export default function DayPlannerPage() {
     message: string;
   } | null>(null);
   const [notes, setNotes] = useState("");
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTask, setNewTask] = useState("");
-  const [newPriority, setNewPriority] = useState<Task["priority"]>("medium");
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => defaultBlocks);
-  const [newBlockTime, setNewBlockTime] = useState("");
+  const [startHour, setStartHour] = useState("09");
+  const [startMin, setStartMin] = useState("00");
+  const [startPeriod, setStartPeriod] = useState<"AM" | "PM">("AM");
+  const [endHour, setEndHour] = useState("10");
+  const [endMin, setEndMin] = useState("00");
+  const [endPeriod, setEndPeriod] = useState<"AM" | "PM">("AM");
   const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
   const dailyFocusStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blocksSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blocksRef = useRef<TimeBlock[]>(defaultBlocks);
-  const tasksSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tasksRef = useRef<Task[]>([]);
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesRef = useRef<string>("");
   const dailyFocusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,7 +139,6 @@ export default function DayPlannerPage() {
     return () => {
       if (dailyFocusStatusTimer.current) clearTimeout(dailyFocusStatusTimer.current);
       if (blocksSaveTimer.current) clearTimeout(blocksSaveTimer.current);
-      if (tasksSaveTimer.current) clearTimeout(tasksSaveTimer.current);
       if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
       if (dailyFocusSaveTimer.current) clearTimeout(dailyFocusSaveTimer.current);
     };
@@ -165,27 +158,6 @@ export default function DayPlannerPage() {
     []
   );
 
-  const saveTasksToServer = useCallback(
-    async (tasksToSave: Task[], dateKey: string) => {
-      try {
-        await apiFetch("/api/task-stack", {
-          method: "PUT",
-          json: {
-            date: dateKey,
-            tasks: tasksToSave.map((t) => ({
-              taskId: t.id,
-              title: t.title,
-              priority: t.priority,
-              done: t.done,
-            })),
-          },
-        });
-      } catch {
-        // silent — best-effort
-      }
-    },
-    []
-  );
 
   const saveNotesToServer = useCallback(
     async (content: string, dateKey: string) => {
@@ -237,28 +209,6 @@ export default function DayPlannerPage() {
     return () => { active = false; };
   }, [plannerDateKey, user?.timezone]);
 
-  // ── Load task stack ──
-  useEffect(() => {
-    if (!user?.timezone || !plannerDateKey) return;
-    let active = true;
-    (async () => {
-      try {
-        const r = await apiFetch<{ date: string; tasks: { taskId: string; title: string; priority: Task["priority"]; done: boolean }[] }>(
-          `/api/task-stack?date=${plannerDateKey}`,
-          { method: "GET" }
-        );
-        if (!active) return;
-        const mapped = (r.tasks ?? []).map((t) => ({ id: t.taskId, title: t.title, priority: t.priority, done: t.done }));
-        setTasks(mapped);
-        tasksRef.current = mapped;
-      } catch {
-        if (!active) return;
-        setTasks([]);
-        tasksRef.current = [];
-      }
-    })();
-    return () => { active = false; };
-  }, [plannerDateKey, user?.timezone]);
 
   // ── Load planner notes ──
   useEffect(() => {
@@ -343,63 +293,25 @@ export default function DayPlannerPage() {
   }
 
   function updateDailyFocusText(label: FocusLabel, value: string) {
-    setDailyFocusItems((prev) => {
-      const next = [...prev];
-      const index = next.findIndex((item) => item.label === label);
-      if (index < 0) return prev;
-      next[index] = { ...next[index], text: value };
-      debounceDailyFocusSave(next);
-      return next;
-    });
+    const next = [...dailyFocusItems];
+    const index = next.findIndex((item) => item.label === label);
+    if (index < 0) return;
+    next[index] = { ...next[index], text: value };
+    setDailyFocusItems(next);
+    debounceDailyFocusSave(next);
   }
 
   function toggleDailyFocusDone(label: FocusLabel) {
-    setDailyFocusItems((prev) => {
-      const next = [...prev];
-      const index = next.findIndex((item) => item.label === label);
-      if (index < 0) return prev;
-      next[index] = { ...next[index], done: !next[index].done };
-      // toggle saves immediately
-      dailyFocusRef.current = next;
-      if (plannerDateKey) saveDailyFocusToServer(next, plannerDateKey);
-      return next;
-    });
+    const next = [...dailyFocusItems];
+    const index = next.findIndex((item) => item.label === label);
+    if (index < 0) return;
+    next[index] = { ...next[index], done: !next[index].done };
+    setDailyFocusItems(next);
+    // toggle saves immediately
+    dailyFocusRef.current = next;
+    if (plannerDateKey) saveDailyFocusToServer(next, plannerDateKey);
   }
 
-  function addTask() {
-    const title = newTask.trim();
-    if (!title) return;
-    setTasks((prev) => {
-      const next = [
-        ...prev,
-        { id: createId(), title, priority: newPriority, done: false },
-      ];
-      tasksRef.current = next;
-      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
-      return next;
-    });
-    setNewTask("");
-  }
-
-  function toggleTask(id: string) {
-    setTasks((prev) => {
-      const next = prev.map((task) =>
-        task.id === id ? { ...task, done: !task.done } : task
-      );
-      tasksRef.current = next;
-      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
-      return next;
-    });
-  }
-
-  function removeTask(id: string) {
-    setTasks((prev) => {
-      const next = prev.filter((task) => task.id !== id);
-      tasksRef.current = next;
-      if (plannerDateKey) saveTasksToServer(next, plannerDateKey);
-      return next;
-    });
-  }
 
   function handleNotesChange(value: string) {
     setNotes(value);
@@ -411,30 +323,26 @@ export default function DayPlannerPage() {
   }
 
   function updateBlock(index: number, field: keyof TimeBlock, value: string) {
-    setBlocks((prev) => {
-      const next = prev.map((block, i) =>
-        i === index ? { ...block, [field]: value } : block
-      );
-      blocksRef.current = next;
-      // Debounce save on text edits
-      if (blocksSaveTimer.current) clearTimeout(blocksSaveTimer.current);
-      blocksSaveTimer.current = setTimeout(() => {
-        if (plannerDateKey) saveBlocksToServer(blocksRef.current, plannerDateKey);
-      }, 600);
-      return next;
-    });
+    const next = blocks.map((block, i) =>
+      i === index ? { ...block, [field]: value } : block
+    );
+    setBlocks(next);
+    blocksRef.current = next;
+
+    // Debounce save on text edits
+    if (blocksSaveTimer.current) clearTimeout(blocksSaveTimer.current);
+    blocksSaveTimer.current = setTimeout(() => {
+      if (plannerDateKey) saveBlocksToServer(blocksRef.current, plannerDateKey);
+    }, 600);
   }
 
   function addBlock() {
-    const time = newBlockTime.trim();
-    if (!time) return;
-    setBlocks((prev) => {
-      const next = [...prev, { time, plan: "", notes: "" }];
-      blocksRef.current = next;
-      if (plannerDateKey) saveBlocksToServer(next, plannerDateKey);
-      return next;
-    });
-    setNewBlockTime("");
+    const time = `${startHour}:${startMin} ${startPeriod} - ${endHour}:${endMin} ${endPeriod}`;
+    const newBlock = { time, plan: "", notes: "" };
+    const next = [...blocks, newBlock];
+    setBlocks(next);
+    blocksRef.current = next;
+    if (plannerDateKey) saveBlocksToServer(next, plannerDateKey);
   }
 
   function removeBlock(index: number) {
@@ -526,18 +434,88 @@ export default function DayPlannerPage() {
                 </div>
                 <span className="text-xs text-[color:var(--text-muted)]">{blocks.length} blocks</span>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={newBlockTime}
-                  onChange={(event) => setNewBlockTime(event.target.value)}
-                  placeholder="Add a time block (e.g. 09:00 - 10:30)"
-                  className="flex-1 rounded-lg border border-[color:var(--border-default)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60"
-                />
+              <div className="flex flex-wrap items-center gap-6 bg-[color:var(--bg-card)]/50 p-5 rounded-2xl border border-[color:var(--border-default)]/40">
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">Start</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-[color:var(--bg-surface)] p-1 rounded-lg border border-[color:var(--border-default)] focus-within:border-[color:var(--accent)]/60 transition-colors">
+                      <input
+                        type="text"
+                        value={startHour}
+                        onChange={(e) => setStartHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                        className="w-8 bg-transparent text-center text-sm font-medium text-[color:var(--text-primary)] outline-none"
+                        placeholder="09"
+                      />
+                      <span className="text-[color:var(--text-muted)] font-bold">:</span>
+                      <input
+                        type="text"
+                        value={startMin}
+                        onChange={(e) => setStartMin(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                        className="w-8 bg-transparent text-center text-sm font-medium text-[color:var(--text-primary)] outline-none"
+                        placeholder="00"
+                      />
+                    </div>
+                    <div className="flex border border-[color:var(--border-default)] rounded-lg overflow-hidden">
+                      {(["AM", "PM"] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setStartPeriod(p)}
+                          className={`px-3 py-1.5 text-[10px] font-bold transition-all ${
+                            startPeriod === p
+                              ? "bg-[color:var(--accent)] text-black"
+                              : "bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">End</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-[color:var(--bg-surface)] p-1 rounded-lg border border-[color:var(--border-default)] focus-within:border-[color:var(--accent)]/60 transition-colors">
+                      <input
+                        type="text"
+                        value={endHour}
+                        onChange={(e) => setEndHour(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                        className="w-8 bg-transparent text-center text-sm font-medium text-[color:var(--text-primary)] outline-none"
+                        placeholder="10"
+                      />
+                      <span className="text-[color:var(--text-muted)] font-bold">:</span>
+                      <input
+                        type="text"
+                        value={endMin}
+                        onChange={(e) => setEndMin(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                        className="w-8 bg-transparent text-center text-sm font-medium text-[color:var(--text-primary)] outline-none"
+                        placeholder="00"
+                      />
+                    </div>
+                    <div className="flex border border-[color:var(--border-default)] rounded-lg overflow-hidden">
+                      {(["AM", "PM"] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setEndPeriod(p)}
+                          className={`px-3 py-1.5 text-[10px] font-bold transition-all ${
+                            endPeriod === p
+                              ? "bg-[color:var(--accent)] text-black"
+                              : "bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   onClick={addBlock}
-                  className="rounded-lg border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/20 px-4 py-2 text-sm text-[color:var(--accent)] hover:bg-[color:var(--accent)]/30"
+                  className="ml-auto rounded-xl bg-[color:var(--accent)] px-8 py-2.5 text-xs font-bold text-black hover:bg-[color:var(--accent)]/90 transition-all active:scale-95 uppercase tracking-widest"
                 >
-                  Add block
+                  Add Block
                 </button>
               </div>
               <div className="space-y-4">
@@ -594,77 +572,6 @@ export default function DayPlannerPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-lg font-semibold">Task Stack</h3>
-                  <p className="text-sm text-[color:var(--text-muted)]">Capture everything and prioritize.</p>
-                </div>
-                <span className="text-xs text-[color:var(--text-muted)]">{tasks.length} tasks</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={newTask}
-                  onChange={(event) => setNewTask(event.target.value)}
-                  placeholder="Add a task"
-                  className="flex-1 rounded-lg border border-[color:var(--border-default)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]/60"
-                />
-                <select
-                  value={newPriority}
-                  onChange={(event) => setNewPriority(event.target.value as Task["priority"])}
-                  className="rounded-lg border border-[color:var(--border-default)] bg-[color:var(--bg-card)] px-3 py-2 text-sm text-[color:var(--text-secondary)]"
-                >
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-                <button
-                  onClick={addTask}
-                  className="rounded-lg border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/20 px-4 py-2 text-sm text-[color:var(--accent)] hover:bg-[color:var(--accent)]/30"
-                >
-                  Add
-                </button>
-              </div>
-
-              {tasks.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[color:var(--border-default)] px-4 py-6 text-sm text-[color:var(--text-muted)]">
-                  No tasks yet. Add the next action that moves you forward.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--border-default)] bg-[color:var(--bg-card)] px-4 py-3"
-                    >
-                      <label className="flex flex-1 items-center gap-3 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={task.done}
-                          onChange={() => toggleTask(task.id)}
-                          className="h-4 w-4 accent-[color:var(--accent)]"
-                        />
-                        <span className={task.done ? "line-through text-[color:var(--text-muted)]" : ""}>
-                          {task.title}
-                        </span>
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <span className="rounded-full border border-[color:var(--border-default)] px-3 py-1 text-xs text-[color:var(--text-secondary)]">
-                          {task.priority}
-                        </span>
-                        <button
-                          onClick={() => removeTask(task.id)}
-                          className="text-xs text-[color:var(--danger)] hover:text-[color:var(--danger)]/80"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
           </div>
 
           <div className="space-y-6">
