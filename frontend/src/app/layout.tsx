@@ -13,9 +13,12 @@ export const metadata: Metadata = {
   description: "Track daily habits and build streaks.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png",
-    shortcut: "/icons/icon-192.png"
+    icon: [
+      { url: "/icons/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/icon-192.png?v=2",
+    shortcut: "/icons/icon-192.png?v=2"
   },
   appleWebApp: {
     capable: true,
