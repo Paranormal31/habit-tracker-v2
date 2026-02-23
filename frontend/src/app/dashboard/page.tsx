@@ -89,22 +89,6 @@ export default function DashboardPage() {
     return Array.from(keys);
   }, [recentDays]);
 
-  const monthOptions = useMemo(() => {
-    const [year, month] = todayKey.split("-").map(Number);
-    if (!year || !month) return [];
-    const base = new Date(Date.UTC(year, month - 1, 1));
-    return Array.from({ length: 24 }, (_, i) => {
-      const date = new Date(base);
-      date.setUTCMonth(base.getUTCMonth() - i);
-      const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      const label = date.toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      });
-      return { key, label };
-    });
-  }, [todayKey]);
 
   useEffect(() => {
     if (!selectedMonthKey) {
@@ -339,19 +323,40 @@ export default function DashboardPage() {
           <div className="flex-1">
             <div className="ml-auto grid w-full max-w-[320px] grid-cols-2 gap-3">
               <select
-                value={selectedMonthKey ?? todayKey.slice(0, 7)}
-                onChange={(event) => selectMonth(event.target.value)}
-                className="col-span-2 h-11 w-full rounded-full border border-[color:var(--border-default)] bg-transparent px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)]"
+                value={selectedMonthKey?.split("-")[1] ?? todayKey.split("-")[1]}
+                onChange={(e) => {
+                  const currentYear = selectedMonthKey?.split("-")[0] ?? todayKey.split("-")[0];
+                  selectMonth(`${currentYear}-${e.target.value}`);
+                }}
+                className="h-11 w-full rounded-full border border-[color:var(--border-default)] bg-transparent px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] transition-all outline-none"
               >
-                {monthOptions.map((option) => (
-                  <option
-                    key={option.key}
-                    value={option.key}
-                    className="bg-[color:var(--bg-card)] text-[color:var(--text-primary)]"
-                  >
-                    {option.label}
-                  </option>
-                ))}
+                {Array.from({ length: 12 }, (_, i) => {
+                  const val = String(i + 1).padStart(2, "0");
+                  const date = new Date(2000, i, 1);
+                  const label = date.toLocaleString("en-US", { month: "long" });
+                  return (
+                    <option key={val} value={val} className="bg-[color:var(--bg-card)] text-[color:var(--text-primary)]">
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+              <select
+                value={selectedMonthKey?.split("-")[0] ?? todayKey.split("-")[0]}
+                onChange={(e) => {
+                  const currentMonth = selectedMonthKey?.split("-")[1] ?? todayKey.split("-")[1];
+                  selectMonth(`${e.target.value}-${currentMonth}`);
+                }}
+                className="h-11 w-full rounded-full border border-[color:var(--border-default)] bg-transparent px-4 text-sm text-[color:var(--text-secondary)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--text-primary)] transition-all outline-none"
+              >
+                {Array.from({ length: 5 }, (_, i) => {
+                  const year = new Date().getFullYear() - 2 + i;
+                  return (
+                    <option key={year} value={year} className="bg-[color:var(--bg-card)] text-[color:var(--text-primary)]">
+                      {year}
+                    </option>
+                  );
+                })}
               </select>
               <button
                 onClick={() => shiftDays("prev")}
