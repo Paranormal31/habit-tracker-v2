@@ -1,5 +1,11 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+export const API_BASE_URL = (() => {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (typeof window !== "undefined") {
+    // Dynamically point to port 4000 on the same host (PC IP)
+    return `http://${window.location.hostname}:4000`;
+  }
+  return "http://localhost:4000";
+})();
 
 type ApiOptions = RequestInit & { json?: unknown; timeoutMs?: number };
 

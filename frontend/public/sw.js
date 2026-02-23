@@ -20,3 +20,8 @@ self.addEventListener("activate", (event) => {
   );
   self.clients.claim();
 });
+
+self.addEventListener("fetch", (event) => {
+  // Minimal fetch handler to enable PWA installation
+  event.respondWith(fetch(event.request));
+});
