@@ -8,6 +8,23 @@ export const API_BASE_URL = (() => {
 })();
 
 type ApiOptions = RequestInit & { json?: unknown; timeoutMs?: number };
+type ApiIssue = {
+  path?: Array<string | number>;
+  message?: string;
+  code?: string;
+};
+
+export class ApiError extends Error {
+  status: number;
+  issues: ApiIssue[];
+
+  constructor(message: string, status: number, issues: ApiIssue[] = []) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.issues = issues;
+  }
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -39,11 +56,13 @@ export async function apiFetch<T>(
 
     if (!res.ok) {
       let message = "Request failed";
+      let issues: ApiIssue[] = [];
       try {
         const data = await res.json();
         if (typeof data?.message === "string") message = data.message;
+        if (Array.isArray(data?.issues)) issues = data.issues;
       } catch {}
-      throw new Error(message);
+      throw new ApiError(message, res.status, issues);
     }
 
     return res.json();

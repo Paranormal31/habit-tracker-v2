@@ -3,7 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
+
+const passwordRules = [
+  {
+    key: "min8",
+    label: "At least 8 characters",
+    test: (value: string) => value.length >= 8,
+  },
+  {
+    key: "uppercase",
+    label: "At least one uppercase letter (A-Z)",
+    test: (value: string) => /[A-Z]/.test(value),
+  },
+  {
+    key: "lowercase",
+    label: "At least one lowercase letter (a-z)",
+    test: (value: string) => /[a-z]/.test(value),
+  },
+  {
+    key: "number",
+    label: "At least one number (0-9)",
+    test: (value: string) => /[0-9]/.test(value),
+  },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,11 +34,17 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [passwordWarnings, setPasswordWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const passwordChecks = passwordRules.map((rule) => ({
+    ...rule,
+    valid: rule.test(password),
+  }));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setPasswordWarnings([]);
     setLoading(true);
     try {
       await apiFetch("/api/auth/register", {
@@ -29,7 +58,20 @@ export default function RegisterPage() {
       });
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      if (err instanceof ApiError) {
+        const passwordIssues = err.issues
+          .filter((issue) => issue.path?.includes("password"))
+          .map((issue) => issue.message)
+          .filter((message): message is string => Boolean(message));
+        if (passwordIssues.length > 0) {
+          setPasswordWarnings(passwordIssues);
+          setError("Please fix the password issues below.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Registration failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -82,12 +124,45 @@ export default function RegisterPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (passwordWarnings.length) setPasswordWarnings([]);
+              }}
               className="w-full rounded-lg border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]"
               placeholder="Create a password"
               required
             />
+            <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-3 py-2">
+              <p className="text-xs text-[color:var(--text-secondary)]">
+                Password requirements
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {passwordChecks.map((rule) => (
+                  <li
+                    key={rule.key}
+                    className={
+                      rule.valid
+                        ? "text-emerald-600"
+                        : "text-[color:var(--text-secondary)]"
+                    }
+                  >
+                    {rule.valid ? "✓" : "•"} {rule.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
+
+          {passwordWarnings.length > 0 && (
+            <div className="rounded-lg border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 px-3 py-2 text-sm text-[color:var(--danger)]">
+              <p className="font-medium">Please update your password:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {passwordWarnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg border border-[color:var(--danger)]/40 bg-[color:var(--danger)]/10 px-3 py-2 text-sm text-[color:var(--danger)]">
