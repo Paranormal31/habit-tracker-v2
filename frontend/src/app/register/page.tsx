@@ -86,7 +86,7 @@ export default function RegisterPage() {
           </p>
           <h1 className="text-2xl font-semibold">Create your account</h1>
           <p className="text-sm text-[color:var(--text-secondary)]">
-            Start building consistent habits in IST.
+            Build routines that stick with daily tracking, focus, and momentum.
           </p>
         </div>
 
