@@ -1,11 +1,33 @@
-export const API_BASE_URL = (() => {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL;
+function resolveApiBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
+
   if (typeof window !== "undefined") {
-    // Dynamically point to port 4000 on the same host (PC IP)
-    return `http://${window.location.hostname}:4000`;
+    const host = window.location.hostname;
+    // If frontend is opened via LAN/IP and env is still localhost,
+    // switch API host to current hostname so requests actually reach backend.
+    if (configured) {
+      try {
+        const parsed = new URL(configured);
+        const isLocalhostConfig =
+          parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+        const isBrowserLocalhost = host === "localhost" || host === "127.0.0.1";
+        if (isLocalhostConfig && !isBrowserLocalhost) {
+          parsed.hostname = host;
+          return parsed.toString().replace(/\/$/, "");
+        }
+        return configured;
+      } catch {
+        // Fall through to default host-based behavior for malformed env value.
+      }
+    }
+    return `http://${host}:4000`;
   }
+
+  if (configured) return configured;
   return "http://localhost:4000";
-})();
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 type ApiOptions = RequestInit & { json?: unknown; timeoutMs?: number };
 type ApiIssue = {

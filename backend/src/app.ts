@@ -22,6 +22,21 @@ function parseAllowedOrigins(value: string): string[] {
     .filter(Boolean);
 }
 
+function isAllowedDevOrigin(origin: string): boolean {
+  if (!origin.startsWith("http://")) return false;
+  const match = origin.match(/^http:\/\/([^:/]+):(\d{2,5})$/);
+  if (!match) return false;
+  const host = match[1];
+  const port = Number(match[2]);
+  if (port !== 3000 && port !== 3001) return false;
+  if (host === "localhost" || host === "127.0.0.1") return true;
+  // RFC1918 private ranges commonly used in local network testing.
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  return false;
+}
+
 export function createApp() {
   const app = express();
   const allowedOrigins = parseAllowedOrigins(env.CORS_ORIGIN);
@@ -39,6 +54,9 @@ export function createApp() {
           return callback(null, true);
         }
         if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        if (env.NODE_ENV === "development" && isAllowedDevOrigin(origin)) {
           return callback(null, true);
         }
         return callback(new Error("CORS origin not allowed"));
