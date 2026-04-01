@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError, apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type Habit = {
   id: string;
@@ -23,23 +23,10 @@ type HabitAssistantProps = {
   onHabitsUpdated: (habits: Habit[]) => void;
 };
 
-type ChatDebug = {
-  enabled?: boolean;
-  nodeEnv?: string;
-  hasGroqApiKey?: boolean;
-  groqModel?: string;
-  requestOrigin?: string | null;
-  requestHost?: string | null;
-  groqStatus?: number;
-  groqStatusText?: string;
-};
-
 export function HabitAssistant({ onHabitsUpdated }: HabitAssistantProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<ChatDebug | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -56,20 +43,15 @@ export function HabitAssistant({ onHabitsUpdated }: HabitAssistantProps) {
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
-      const result = await apiFetch<{ reply: string; habits: Habit[]; debug?: ChatDebug }>("/api/chat", {
+      const result = await apiFetch<{ reply: string; habits: Habit[] }>("/api/chat", {
         method: "POST",
-        json: { message: text, debug: debugMode }
+        json: { message: text }
       });
       setMessages((prev) => [...prev, { role: "assistant", text: result.reply }]);
-      setDebugInfo(result.debug ?? null);
       onHabitsUpdated(result.habits);
     } catch (err) {
       const errorText = err instanceof Error ? err.message : "Chat failed";
       setMessages((prev) => [...prev, { role: "assistant", text: `Error: ${errorText}` }]);
-      if (err instanceof ApiError && err.data && typeof err.data === "object") {
-        const maybeDebug = (err.data as { debug?: ChatDebug }).debug;
-        setDebugInfo(maybeDebug ?? null);
-      }
     } finally {
       setSending(false);
     }
@@ -81,24 +63,12 @@ export function HabitAssistant({ onHabitsUpdated }: HabitAssistantProps) {
         <div className="fixed bottom-5 right-5 z-50 w-[340px] rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)] shadow-2xl">
           <div className="flex items-center justify-between border-b border-[color:var(--border-subtle)] px-3 py-2">
             <div className="text-sm font-semibold">Habit Assistant</div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setDebugMode((v) => !v)}
-                className={`rounded-md px-2 py-1 text-xs ${
-                  debugMode
-                    ? "bg-[color:var(--accent)] text-black"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--bg-surface)]"
-                }`}
-              >
-                Debug {debugMode ? "On" : "Off"}
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-md px-2 py-1 text-xs text-[color:var(--text-muted)] hover:bg-[color:var(--bg-surface)]"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="rounded-md px-2 py-1 text-xs text-[color:var(--text-muted)] hover:bg-[color:var(--bg-surface)]"
+            >
+              Close
+            </button>
           </div>
 
           <div className="h-72 space-y-2 overflow-y-auto px-3 py-3">
@@ -115,21 +85,6 @@ export function HabitAssistant({ onHabitsUpdated }: HabitAssistantProps) {
               </div>
             ))}
           </div>
-
-          {debugMode && debugInfo ? (
-            <div className="mx-3 mb-2 rounded-md border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-2 text-[11px] text-[color:var(--text-secondary)]">
-              <div>env: {debugInfo.nodeEnv ?? "unknown"}</div>
-              <div>hasGroqApiKey: {String(Boolean(debugInfo.hasGroqApiKey))}</div>
-              <div>groqModel: {debugInfo.groqModel ?? "unknown"}</div>
-              <div>origin: {debugInfo.requestOrigin ?? "none"}</div>
-              <div>host: {debugInfo.requestHost ?? "none"}</div>
-              {typeof debugInfo.groqStatus === "number" ? (
-                <div>
-                  groqHttp: {debugInfo.groqStatus} {debugInfo.groqStatusText ?? ""}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           <div className="border-t border-[color:var(--border-subtle)] p-3">
             <div className="flex gap-2">
