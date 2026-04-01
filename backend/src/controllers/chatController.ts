@@ -16,6 +16,15 @@ type ChatPlan = {
   operations: ChatOperation[];
 };
 
+type ChatDebugInfo = {
+  enabled: boolean;
+  nodeEnv: string;
+  hasGroqApiKey: boolean;
+  groqModel: string;
+  requestOrigin: string | null;
+  requestHost: string | null;
+};
+
 const TIME_24H_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 function normalizeName(value: string) {
@@ -27,17 +36,34 @@ function isValidTime(value: string | null | undefined) {
   return TIME_24H_REGEX.test(value);
 }
 
+function getChatDebugInfo(req: AuthRequest, enabled: boolean): ChatDebugInfo {
+  return {
+    enabled,
+    nodeEnv: env.NODE_ENV,
+    hasGroqApiKey: Boolean(env.GROQ_API_KEY),
+    groqModel: env.GROQ_MODEL,
+    requestOrigin: req.get("origin") ?? null,
+    requestHost: req.get("host") ?? null
+  };
+}
+
 export async function chatWithHabits(req: AuthRequest, res: Response) {
+  const debugEnabled = Boolean(req.body?.debug);
+  const debug = getChatDebugInfo(req, debugEnabled);
+
   if (!req.userId) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Unauthorized", debug: debugEnabled ? debug : undefined });
   }
   if (!env.GROQ_API_KEY) {
-    return res.status(500).json({ message: "GROQ_API_KEY is not configured on the server" });
+    return res.status(500).json({
+      message: "GROQ_API_KEY is not configured on the server",
+      debug: debugEnabled ? debug : undefined
+    });
   }
 
   const userMessage = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   if (!userMessage) {
-    return res.status(400).json({ message: "Message is required" });
+    return res.status(400).json({ message: "Message is required", debug: debugEnabled ? debug : undefined });
   }
 
   const habits = await Habit.find({ userId: req.userId }).sort({ order: 1 });
@@ -82,7 +108,16 @@ export async function chatWithHabits(req: AuthRequest, res: Response) {
   });
 
   if (!completionRes.ok) {
-    return res.status(502).json({ message: "Groq request failed" });
+    return res.status(502).json({
+      message: "Groq request failed",
+      debug: debugEnabled
+        ? {
+            ...debug,
+            groqStatus: completionRes.status,
+            groqStatusText: completionRes.statusText
+          }
+        : undefined
+    });
   }
 
   const completionJson = (await completionRes.json()) as {
@@ -182,6 +217,7 @@ export async function chatWithHabits(req: AuthRequest, res: Response) {
   return res.json({
     reply: plan.reply,
     applied,
+    debug: debugEnabled ? debug : undefined,
     habits: updatedHabits.map((h) => ({
       id: h._id,
       name: h.name,

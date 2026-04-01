@@ -39,12 +39,14 @@ type ApiIssue = {
 export class ApiError extends Error {
   status: number;
   issues: ApiIssue[];
+  data?: unknown;
 
-  constructor(message: string, status: number, issues: ApiIssue[] = []) {
+  constructor(message: string, status: number, issues: ApiIssue[] = [], data?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.issues = issues;
+    this.data = data;
   }
 }
 
@@ -79,12 +81,14 @@ export async function apiFetch<T>(
     if (!res.ok) {
       let message = "Request failed";
       let issues: ApiIssue[] = [];
+      let data: unknown = undefined;
       try {
-        const data = await res.json();
-        if (typeof data?.message === "string") message = data.message;
-        if (Array.isArray(data?.issues)) issues = data.issues;
+        data = await res.json();
+        const payload = data as { message?: string; issues?: ApiIssue[] };
+        if (typeof payload.message === "string") message = payload.message;
+        if (Array.isArray(payload.issues)) issues = payload.issues;
       } catch {}
-      throw new ApiError(message, res.status, issues);
+      throw new ApiError(message, res.status, issues, data);
     }
 
     return res.json();
