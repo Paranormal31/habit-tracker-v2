@@ -12,6 +12,7 @@ import dailyFocusRoutes from "./routes/dailyFocus";
 import timeBlocksRoutes from "./routes/timeBlocks";
 import taskStackRoutes from "./routes/taskStack";
 import plannerNotesRoutes from "./routes/plannerNotes";
+import chatRoutes from "./routes/chat";
 import { errorHandler } from "./middleware/errorHandler";
 
 function parseAllowedOrigins(value: string): string[] {
@@ -91,6 +92,7 @@ export function createApp() {
   app.use("/api/time-blocks", timeBlocksRoutes);
   app.use("/api/task-stack", taskStackRoutes);
   app.use("/api/planner-notes", plannerNotesRoutes);
+  app.use("/api/chat", chatRoutes);
 
   app.use(errorHandler);
 

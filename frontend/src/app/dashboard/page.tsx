@@ -10,6 +10,7 @@ import { ProgressCard } from "@/components/ProgressCard";
 import { HabitGrid } from "@/components/HabitGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { PageTabs } from "@/components/PageTabs";
+import { HabitAssistant } from "@/components/HabitAssistant";
 
 type User = {
   id: string;
@@ -406,6 +407,8 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      <HabitAssistant onHabitsUpdated={setHabits} />
     </div>
   );
 }
