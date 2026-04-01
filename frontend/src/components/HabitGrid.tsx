@@ -3,6 +3,7 @@ import { HabitRow } from "./HabitRow";
 type Habit = {
   id: string;
   name: string;
+  time: string | null;
   order: number;
   streak: number;
   streakFreezeDate: string | null;
@@ -26,6 +27,7 @@ type HabitGridProps = {
   onToggleFreeze: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
+  onUpdateTime: (habitId: string, time: string | null) => Promise<void>;
 };
 
 export function HabitGrid({
@@ -37,6 +39,7 @@ export function HabitGrid({
   onToggleFreeze,
   onDelete,
   onMove,
+  onUpdateTime,
 }: HabitGridProps) {
   return (
     <div className="rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--bg-card)]">
@@ -81,6 +84,7 @@ export function HabitGrid({
                 onToggleFreeze={onToggleFreeze}
                 onDelete={onDelete}
                 onMove={onMove}
+                onUpdateTime={onUpdateTime}
               />
             ))}
           </div>

@@ -4,6 +4,7 @@ const habitSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     name: { type: String, required: true, trim: true },
+    time: { type: String, default: null },
     order: { type: Number, required: true },
     streak: { type: Number, required: true, default: 0 },
     streakFreezeDate: { type: String, default: null }
@@ -17,6 +18,7 @@ export type HabitDoc = {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
   name: string;
+  time: string | null;
   order: number;
   streak: number;
   streakFreezeDate: string | null;

@@ -23,6 +23,7 @@ export async function listHabits(req: AuthRequest, res: Response) {
     habits.map((h) => ({
       id: h._id,
       name: h.name,
+      time: h.time ?? null,
       order: h.order,
       streak: h.streak,
       streakFreezeDate: h.streakFreezeDate ?? null,
@@ -43,6 +44,7 @@ export async function createHabit(req: AuthRequest, res: Response) {
   const habit = await Habit.create({
     userId: req.userId,
     name: data.name.trim(),
+    time: data.time ?? null,
     order,
     streak: 0
   });
@@ -51,6 +53,7 @@ export async function createHabit(req: AuthRequest, res: Response) {
   return res.status(201).json({
     id: habit._id,
     name: habit.name,
+    time: habit.time ?? null,
     order: habit.order,
     streak: habit.streak,
     streakFreezeDate: habit.streakFreezeDate ?? null,
@@ -69,13 +72,19 @@ export async function updateHabit(req: AuthRequest, res: Response) {
     return res.status(404).json({ message: "Habit not found" });
   }
 
-  habit.name = data.name.trim();
+  if (data.name !== undefined) {
+    habit.name = data.name.trim();
+  }
+  if (data.time !== undefined) {
+    habit.time = data.time;
+  }
   await habit.save();
 
   const today = await getTodayInTimezone(req.userId);
   return res.json({
     id: habit._id,
     name: habit.name,
+    time: habit.time ?? null,
     order: habit.order,
     streak: habit.streak,
     streakFreezeDate: habit.streakFreezeDate ?? null,

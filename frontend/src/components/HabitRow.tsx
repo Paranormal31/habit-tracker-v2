@@ -1,6 +1,9 @@
-﻿type Habit = {
+import { useEffect, useState } from "react";
+
+type Habit = {
   id: string;
   name: string;
+  time: string | null;
   order: number;
   streak: number;
   streakFreezeDate: string | null;
@@ -19,6 +22,7 @@ type HabitRowProps = {
   onToggleFreeze: (habitId: string) => void;
   onDelete: (habitId: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
+  onUpdateTime: (habitId: string, time: string | null) => Promise<void>;
 };
 
 function isFuture(dateKeyValue: string, todayKey: string) {
@@ -36,9 +40,28 @@ export function HabitRow({
   onToggleFreeze,
   onDelete,
   onMove,
+  onUpdateTime,
 }: HabitRowProps) {
   const completedToday = completionSet.has(`${habit.id}|${todayKey}`);
   const rowTone = index % 2 === 0 ? "bg-[color:var(--bg-card)]" : "bg-[#11161c]";
+  const [timeValue, setTimeValue] = useState(habit.time ?? "");
+  const [isSavingTime, setIsSavingTime] = useState(false);
+
+  useEffect(() => {
+    setTimeValue(habit.time ?? "");
+  }, [habit.time]);
+
+  async function saveTimeIfChanged() {
+    const normalizedTime = timeValue || null;
+    if (normalizedTime === (habit.time ?? null)) return;
+    setIsSavingTime(true);
+    try {
+      await onUpdateTime(habit.id, normalizedTime);
+    } finally {
+      setIsSavingTime(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div
@@ -48,6 +71,21 @@ export function HabitRow({
           <div>
             <div className="text-sm font-medium">{habit.name}</div>
             <div className="mt-1 text-xs text-[color:var(--text-muted)]">Streak: {habit.streak}</div>
+            <div className="mt-2">
+              <label className="text-[10px] uppercase tracking-wide text-[color:var(--text-muted)]">
+                Time
+              </label>
+              <input
+                type="time"
+                value={timeValue}
+                onChange={(e) => setTimeValue(e.target.value)}
+                onBlur={() => {
+                  void saveTimeIfChanged();
+                }}
+                className="mt-1 h-8 w-full max-w-[140px] rounded-md border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-2 text-xs text-[color:var(--text-primary)] outline-none focus:border-[color:var(--accent)]/60"
+                aria-label={`Set time for ${habit.name}`}
+              />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -130,8 +168,28 @@ export function HabitRow({
           gridTemplateColumns: `minmax(220px, 1fr) 130px repeat(${days.length}, 40px)`,
         }}
       >
-        <div className={`flex items-center justify-between px-4 py-3 transition-colors duration-200 group-hover:bg-[color:var(--accent)]/[0.07] ${rowTone}`}>
-          <span className="text-sm font-medium">{habit.name}</span>
+        <div className={`flex items-center justify-between gap-3 px-4 py-3 transition-colors duration-200 group-hover:bg-[color:var(--accent)]/[0.07] ${rowTone}`}>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{habit.name}</div>
+            <div className="mt-2 flex items-center gap-2">
+              <label className="text-[10px] uppercase tracking-wide text-[color:var(--text-muted)]">
+                Time
+              </label>
+              <input
+                type="time"
+                value={timeValue}
+                onChange={(e) => setTimeValue(e.target.value)}
+                onBlur={() => {
+                  void saveTimeIfChanged();
+                }}
+                className="h-7 w-[130px] rounded-md border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-2 text-xs text-[color:var(--text-primary)] outline-none focus:border-[color:var(--accent)]/60"
+                aria-label={`Set time for ${habit.name}`}
+              />
+              {isSavingTime ? (
+                <span className="text-[10px] text-[color:var(--text-muted)]">Saving...</span>
+              ) : null}
+            </div>
+          </div>
           <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
             <button
               onClick={() => onMove(index, "up")}

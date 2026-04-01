@@ -21,6 +21,7 @@ type User = {
 type Habit = {
   id: string;
   name: string;
+  time: string | null;
   order: number;
   streak: number;
   streakFreezeDate: string | null;
@@ -258,6 +259,15 @@ export default function DashboardPage() {
     });
   }
 
+  async function updateHabitTime(habitId: string, time: string | null) {
+    setError(null);
+    const updated = await apiFetch<Habit>(`/api/habits/${habitId}`, {
+      method: "PATCH",
+      json: { time },
+    });
+    setHabits((prev) => prev.map((h) => (h.id === habitId ? updated : h)));
+  }
+
   function shiftDays(direction: "prev" | "next") {
     const baseKey = windowEndKey ?? todayKey;
     const [year, month, day] = baseKey.split("-").map(Number);
@@ -386,6 +396,7 @@ export default function DashboardPage() {
             onToggleFreeze={toggleFreeze}
             onDelete={deleteHabit}
             onMove={moveHabit}
+            onUpdateTime={updateHabitTime}
           />
         )}
 
