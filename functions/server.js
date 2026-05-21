@@ -34,9 +34,16 @@ const habitRoutes = require("./routes/habitRoutes");
 app.use("/auth", authRoutes);
 app.use("/habits", habitRoutes);
 
+// Support Vercel serverless function paths (/api/auth and /api/habits)
+app.use("/api/auth", authRoutes);
+app.use("/api/habits", habitRoutes);
+
 // Base root endpoint
 app.get("/", (req, res) => {
   res.send("Habit Tracker Serverless API is running");
+});
+app.get("/api", (req, res) => {
+  res.send("Habit Tracker Serverless API is running at /api");
 });
 
 module.exports = app;
