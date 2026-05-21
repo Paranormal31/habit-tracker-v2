@@ -1,3 +1,5 @@
 .env
 node_modules
 MongoDB Atlas
+habit-tracker-v2-sarth-firebase-adminsdk-*.json
+.vercel
