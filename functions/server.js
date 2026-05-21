@@ -3,11 +3,23 @@ const cors = require("cors");
 const admin = require("firebase-admin");
 const dotenv = require("dotenv");
 
-// Initialize Firebase Admin SDK
-admin.initializeApp();
-
 // Load local environment variables (if any)
 dotenv.config();
+
+// Initialize Firebase Admin SDK
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } catch (err) {
+    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT env var, falling back to default:", err);
+    admin.initializeApp();
+  }
+} else {
+  admin.initializeApp();
+}
 
 const app = express();
 
